@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="2048" height="2048" viewBox="0 0 2048 2048">
+  <title>Anti Crew screen print on the studio visitor's shirt UVs</title>
+  <defs>
+    <path id="A" d="M2 0h2v1H2z M1 1h1v1H1z M4 1h1v1H4z M0 2h1v2h4V2h1v5H5V5H1v2H0z"/>
+    <path id="C" d="M1 0h4v1H1z M0 1h1v5H0z M5 1h1v1H5z M5 5h1v1H5z M1 6h4v1H1z"/>
+    <path id="D" d="M0 0h5v1H1v5h4v1H0z M5 1h1v5H5z"/>
+    <path id="E" d="M1 0h4v1H1z M0 1h1v2h3v1H1v2H0z M1 6h4v1H1z"/>
+    <path id="I" d="M0 0h1v7H0z"/>
+    <path id="K" d="M0 0h1v3h1v1H1v3H0z M2 2h1v1H2z M3 1h1v1H3z M4 0h1v1H4z M2 4h1v1H2z M3 5h1v1H3z M4 6h1v1H4z"/>
+    <path id="N" d="M0 0h1l4 5V0h1v7H5L1 2v5H0z"/>
+    <path id="P" d="M0 0h5v1H1v2h4v1H1v3H0z M5 1h1v2H5z"/>
+    <path id="R" d="M0 0h5v1H1v2h4v1H1v3H0z M5 1h1v2H5z M4 4h1v1H4z M5 5h1v2H5z"/>
+    <path id="S" d="M1 0h4v1H1z M0 1h1v2H0z M5 1h1v1H5z M1 3h4v1H1z M5 4h1v2H5z M0 5h1v1H0z M1 6h4v1H1z"/>
+    <path id="T" d="M0 0h5v1H3v6H2V1H0z"/>
+    <path id="U" d="M0 0h1v6H0z M5 0h1v6H5z M1 6h4v1H1z"/>
+    <path id="W" d="M0 0h1v5l2-2h1l2 2V0h1v7H6L3.5 4.4 1 7H0z"/>
+    <path id="ray" d="M-.46-3.45h.92v6.9h-.92z"/>
+    <path id="ring" fill="none" stroke="white" stroke-width=".26"
+          d="M-.62-1.78H.62v.18h.45v.25h.36v.35h.22v.47h.16v1.06h-.16V1h-.22v.35h-.36v.25H.62v.18H-.62V1.6h-.45v-.25h-.36V1h-.22V.53h-.16V-.53h.16V-1h.22v-.35h.36v-.25h.45z"/>
+  </defs>
+
+  <g id="left-chest" transform="translate(671 912) scale(6.5)" fill="white" stroke="white" stroke-width=".20" stroke-linejoin="round">
+    <title>ANTI / CREW</title>
+    <use xlink:href="#A" x="3"/><use xlink:href="#N" x="10"/>
+    <use xlink:href="#T" x="17"/><use xlink:href="#I" x="23"/>
+    <g transform="translate(0 8.6)">
+      <use xlink:href="#C"/><use xlink:href="#R" x="7"/><use xlink:href="#E" x="14"/><use xlink:href="#W" x="20"/>
+    </g>
+  </g>
+
+  <g id="upper-back" transform="translate(1277 748) scale(11.9)" fill="white">
+    <title>DESIRE / CAPTURE / CREATE</title>
+    <g transform="translate(3.55 3.5)">
+      <use xlink:href="#ray"/><use xlink:href="#ray" transform="rotate(45)"/>
+      <use xlink:href="#ray" transform="rotate(90)"/><use xlink:href="#ray" transform="rotate(135)"/>
+    </g>
+    <use xlink:href="#D" x="12"/><use xlink:href="#E" x="19"/><use xlink:href="#S" x="25"/>
+    <use xlink:href="#I" x="32"/><use xlink:href="#R" x="34"/><use xlink:href="#E" x="41"/>
+    <g transform="translate(0 9.65)">
+      <use xlink:href="#C"/><use xlink:href="#A" x="7"/><use xlink:href="#P" x="14"/>
+      <use xlink:href="#T" x="21"/><use xlink:href="#U" x="27"/><use xlink:href="#R" x="34"/><use xlink:href="#E" x="41"/>
+    </g>
+    <g transform="translate(0 19.3)">
+      <use xlink:href="#C"/><use xlink:href="#R" x="7"/><use xlink:href="#E" x="14"/>
+      <use xlink:href="#A" x="20"/><use xlink:href="#T" x="27"/><use xlink:href="#E" x="33"/>
+      <g transform="translate(40.15 1.95)">
+        <use xlink:href="#ring"/><use xlink:href="#A" transform="translate(-.84 -.98) scale(.28)"/>
+      </g>
+      <g transform="translate(44.02 1.95)">
+        <use xlink:href="#ring"/><use xlink:href="#K" transform="translate(-.72 -.98) scale(.28)"/>
+      </g>
+    </g>
+    <g text-anchor="middle" font-weight="bold">
+      <text x="23" y="30.7" font-family="Times New Roman, Liberation Serif, serif" font-size="1.36">SAVING THE WORLD FROM BAD DESIGN, ONE PRODUCT AT A TIME</text>
+      <g font-family="Arial, Liberation Sans, sans-serif">
+        <text x="23" y="34.15" font-size=".79">BE RADICALLY OPEN-MINDED * STAY HUMBLE * EVER LEARNING EVER GROWING</text>
+        <text x="23" y="37.05" font-size=".76">WWW.ANTIKODE.COM</text>
+      </g>
+    </g>
+  </g>
+</svg>
