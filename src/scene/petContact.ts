@@ -168,7 +168,8 @@ export function createPetPose(model: Object3D) {
         // A correctly placed wrist still lets a curved finger pass through a shoulder or ear.
         // Lift the IK target by the deepest signed contact over the actual deformed hand.
         for (let pass=0;pass<3;pass++) {
-          player.updateMatrixWorld(true);
+          skin.updateWorldMatrix(true,false);
+          arm.a.updateWorldMatrix(true,true);
           let lift=0;
           for (const j of handSamples) {
             skin.getVertexPosition(j,at).applyMatrix4(skin.matrixWorld);

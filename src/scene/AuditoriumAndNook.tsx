@@ -134,6 +134,31 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
   const nookMattressGeo = useMemo(() => new RoundedBoxGeometry(NOOK_PADS.width, 0.18, NOOK_PADS.depth, 4, 0.045), []);
   const tvFrameGeo = useMemo(() => new RoundedBoxGeometry(0.06, 1.12, 1.84, 3, 0.014), []);
 
+  const tvCreditMat = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 608;
+    const ctx = canvas.getContext('2d')!;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#cfc9bc';
+    ctx.font = '300 44px "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText('C R E A T E D   B Y', 512, 238);
+    ctx.fillStyle = '#f0ebe0';
+    ctx.font = '600 128px "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText('Alvin', 512, 356);
+    ctx.strokeStyle = 'rgba(207, 201, 188, 0.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(392, 296);
+    ctx.lineTo(632, 296);
+    ctx.stroke();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.anisotropy = 8;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false });
+  }, []);
+
   // Precompute the 6 wide auditorium tiers
   const tiers = useMemo(() => {
     return Array.from({ length: ROOM.tierCount }, (_, i) => {
@@ -515,6 +540,9 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
         <mesh geometry={tvFrameGeo} material={mat.whiteOak} castShadow />
         <mesh position={[-0.032, 0, 0]} material={mat.matteScreen}>
           <boxGeometry args={[0.015, 1.04, 1.76]} />
+        </mesh>
+        <mesh position={[-0.041, 0, 0]} rotation={[0, -Math.PI / 2, 0]} material={tvCreditMat}>
+          <planeGeometry args={[1.7, 0.98]} />
         </mesh>
       </group>
     </group>

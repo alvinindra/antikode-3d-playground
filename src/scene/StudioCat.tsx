@@ -82,9 +82,11 @@ export function StudioCat({ body, player, pet }: { body: GroupRef; player: Group
           eye[0]=THREE.MathUtils.lerp(eye[0],0.60+0.36*pet.stroke,pet.weight);
         });
       }
-      root.updateMatrixWorld(true);
-      cat.fur(pet.stroke,pet.contact);
-      pet.surface=cat.fur.heightAt;
+      if (pet.weight>0) {
+        root.updateMatrixWorld(true);
+        cat.fur(pet.stroke,pet.contact);
+        pet.surface=cat.fur.heightAt;
+      }
     }
   }, -0.5);
   return <group ref={body} name="studio-cat" position={[CAT_START.x,ROOM.turfY,CAT_START.z]}>
