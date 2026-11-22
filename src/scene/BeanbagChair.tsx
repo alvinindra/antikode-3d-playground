@@ -85,11 +85,11 @@ export function BeanbagChair({ bag }: { bag: BeanbagSpec }) {
   const mat = getSceneMaterials();
   return (
     <group name={`beanbag-${bag.seed}`} position={[bag.x, ROOM.turfY, bag.z]} rotation-y={bag.yaw} scale={bag.scale}>
-      <mesh material={mat.contactShade} rotation-x={-Math.PI / 2} position-y={0.002} scale={[1.4, 1.32, 1]}>
+      <mesh material={mat.contactShade} userData={{ collision: 'terrain' }} rotation-x={-Math.PI / 2} position-y={0.002} scale={[1.4, 1.32, 1]}>
         <planeGeometry />
       </mesh>
-      <mesh args={[cloth,mat[bag.fabric]]} castShadow receiveShadow />
-      <mesh args={[seams,mat.seamThread]} />
+      <mesh args={[cloth,mat[bag.fabric]]} userData={{ collision: 'round' }} castShadow receiveShadow />
+      <mesh args={[seams,mat.seamThread]} userData={{ collision: 'round' }} />
     </group>
   );
 }

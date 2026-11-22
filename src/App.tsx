@@ -17,6 +17,7 @@ export function App() {
   const [screenOn, setScreenOn] = useState(true);
   const [fps, setFps] = useState(60);
   const input = useRef<PlayerInput>({x:0,forward:0});
+  const staticRoom = useRef<THREE.Group>(null);
   const [hudState, setHudState] = useState<PlayerHudCallbackState>({
     prompt: null,
     locationLabel: 'Playground Turf',
@@ -51,11 +52,15 @@ export function App() {
           bloomEnabled={bloomEnabled}
         />
 
-        <ArchitecturalShell isDay={isDay} spotlightsOn={spotlightsOn} ledOn={ledOn} />
-        <FocalOakWall ledOn={ledOn} screenOn={screenOn} />
-        <AuditoriumAndNook ledOn={ledOn} />
+        <group ref={staticRoom}>
+          <ArchitecturalShell isDay={isDay} spotlightsOn={spotlightsOn} ledOn={ledOn} />
+          <FocalOakWall ledOn={ledOn} screenOn={screenOn} />
+          <AuditoriumAndNook ledOn={ledOn} />
+        </group>
 
         <PlayerController
+          staticRoom={staticRoom}
+          roomRevision={Number(ledOn) + 2 * Number(screenOn)}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onHudUpdate={handleHudUpdate}

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "test:collision": "bun test tools/collision.test.mjs tools/room.test.tsx",
     "dev": "vite",
     "test:motion": "node --test tools/motion.test.mjs tools/cat.test.mjs tools/pet.test.mjs tools/seats.test.mjs",
     "build": "tsc -b && vite build",

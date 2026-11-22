@@ -20,6 +20,13 @@ dan tekan `E` saat petunjuk muncul. Tekan `V` untuk mengganti sudut pandang.
 
 ## Verifikasi
 
+Jalankan `bun run test:collision` untuk menguji kontak karakter dengan geometri
+auditorium, termasuk papan kredit, pintu, tangga, kaca, balkon, dan furnitur.
+Mesh baru di dalam grup `staticRoom` otomatis menjadi penghalang. Untuk mesh
+cekung dengan bukaan, gunakan `userData={{ collision: 'faces' }}` agar bukaannya
+tetap bisa dilalui. Permukaan dengan `collision: 'terrain'` ditangani oleh
+profil lantai dan tangga, bukan sebagai penghalang tambahan.
+
 ```sh
 npm run test:motion
 npm run build

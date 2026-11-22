@@ -16,6 +16,7 @@ export type CharacterPose = 'idle' | 'walk' | 'run' | 'jump' | 'slide' | 'lounge
 
 export interface CharacterAnimState {
   pose: CharacterPose;
+  strideWeight: number;
   distance: number;
   terrain: number;
   seat: number;
@@ -57,6 +58,7 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
     mixer: THREE.AnimationMixer;
     actions: THREE.AnimationAction[];
     weights: number[];
+    idle: THREE.AnimationAction;
     walk: THREE.AnimationAction;
     run: THREE.AnimationAction;
     phase: number;
@@ -70,7 +72,8 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
     const walk = actions.find(action => action.getClip().name === 'walk')!;
     const run = actions.find(action => action.getClip().name === 'run')!;
     walk.paused = run.paused = true;
-    playback.current = { mixer, actions, weights: actions.map(a => a.weight), walk, run, phase: 0.24 };
+    const idle = actions.find(action => action.getClip().name === 'idle')!;
+    playback.current = { mixer, actions, weights: actions.map(a => a.weight), idle, walk, run, phase: 0.24 };
     mixer.update(0);
     return () => {
       playback.current = null;
@@ -98,6 +101,7 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
     const motion = THREE.MathUtils.smoothstep(speed, 0.025, 1.0);
     const run = THREE.MathUtils.smoothstep(speed,
       THREE.MathUtils.lerp(1.55, 1.05, terrain), THREE.MathUtils.lerp(3, 1.42, terrain)) * (1 - 0.82 * terrain);
+    let neutralWeight = 0;
     p.actions.forEach((action, i) => {
       const name = action.getClip().name;
       const goal = moving ? (name === 'walk' ? motion * (1 - run) : name === 'run' ? motion * run : name === 'idle' ? 1 - motion : 0)
@@ -105,8 +109,17 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
       p.weights[i] = THREE.MathUtils.lerp(p.weights[i], goal, blend);
       action.weight = name === 'slide' ? seat : sitting && name === 'lounge' ? sitting.weight
         : p.weights[i] * (1 - seat) * (1 - (sitting?.weight ?? 0));
+      if (name === 'walk' || name === 'run' || name === 'dance') {
+        const safe = action.weight * animRef.current.strideWeight;
+        neutralWeight += action.weight - safe;
+        action.weight = safe;
+      }
       action.enabled = action.weight > 0.00001;
     });
+    if (neutralWeight) {
+      p.idle.enabled = true;
+      p.idle.weight += neutralWeight;
+    }
     // Both captures start on the same heel strike. Share their phase even mid-transition.
     const stride = gltf.scene.userData.strideMeters as { walk: number; run: number };
     const runMix = p.run.weight / Math.max(0.0001, p.walk.weight + p.run.weight);

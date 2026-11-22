@@ -1,13 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
   CAMERA_PRESETS,
-  GALLERY_CHAIRS,
   getRoofY,
   getTierTopY,
   getWalkableFloorY,
-  hitsBeanbag,
   INTERACTION_ZONES,
   ROOM,
   SOLID_OBSTACLES,
@@ -20,6 +18,7 @@ import { StudioCat } from './StudioCat';
 import { blocksCatFootprint } from './catRoutine';
 import { advancePet, beginPet, createPetInteraction, petSpot, releasePet } from './petInteraction';
 import { advanceSeat, nearbySeat, takeSeat, type SeatUse } from './seating';
+import { BODY_RADIUS, BODY_HEIGHT, buildRoomContacts } from './roomContacts';
 
 export type ViewMode = 'third-person' | 'first-person' | 'photo1' | 'photo2' | 'photo3' | 'overview';
 
@@ -36,6 +35,8 @@ export interface PlayerHudCallbackState {
 }
 
 interface PlayerControllerProps {
+  staticRoom: RefObject<THREE.Group | null>;
+  roomRevision: number;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onHudUpdate: (info: PlayerHudCallbackState) => void;
@@ -43,33 +44,22 @@ interface PlayerControllerProps {
   input: PlayerInput;
 }
 
-const PLAYER_RADIUS = 0.28;
-const PLAYER_HEIGHT = 1.75;
 const GRAVITY = -18.5;
 const JUMP_VELOCITY = 6.2;
 const WALK_SPEED = 1.5;
 const RUN_SPEED = 3.65;
 const MAX_STEP_UP = 0.56;
 
-function collidesHorizontal(x: number, y: number, z: number): boolean {
-  if (hitsBeanbag(x, z, PLAYER_RADIUS)) return true;
-  if (x<ROOM.leftWallX && y<0.6) {
-    if (Math.hypot(x+7.75,z-2.25)<0.42+PLAYER_RADIUS) return true;
-    for(const c of GALLERY_CHAIRS) {
-      const dx=x-c.x, dz=z-c.z;
-      if (Math.abs(dx*Math.cos(c.yaw)-dz*Math.sin(c.yaw))<0.375+PLAYER_RADIUS &&
-          Math.abs(dx*Math.sin(c.yaw)+dz*Math.cos(c.yaw))<0.36+PLAYER_RADIUS) return true;
-    }
-  }
+function outsideWalkableVolume(x: number, y: number, z: number): boolean {
   const minY = y + 0.15;
-  const maxY = y + PLAYER_HEIGHT;
+  const maxY = y + BODY_HEIGHT;
 
   for (const box of SOLID_OBSTACLES) {
     if (
-      x + PLAYER_RADIUS > box.minX &&
-      x - PLAYER_RADIUS < box.maxX &&
-      z + PLAYER_RADIUS > box.minZ &&
-      z - PLAYER_RADIUS < box.maxZ &&
+      x + BODY_RADIUS > box.minX &&
+      x - BODY_RADIUS < box.maxX &&
+      z + BODY_RADIUS > box.minZ &&
+      z - BODY_RADIUS < box.maxZ &&
       maxY > box.minY &&
       minY < (box.beneathTiers ? Math.min(box.maxY, getTierTopY(z)) : box.maxY)
     ) {
@@ -79,13 +69,14 @@ function collidesHorizontal(x: number, y: number, z: number): boolean {
   return false;
 }
 
-function nearbyAction(p: THREE.Vector3, cat: THREE.Group | null, scratch: THREE.Vector3) {
+function nearbyAction(p: THREE.Vector3, cat: THREE.Group | null, scratch: THREE.Vector3, room: ReturnType<typeof buildRoomContacts> | null) {
   const zone=INTERACTION_ZONES.slideTop;
-  if (Math.hypot(p.x-zone.x,p.z-zone.z)<zone.radius && Math.abs(p.y-ROOM.mezzanineY)<0.7) return 'slide';
+  if (Math.hypot(p.x-zone.x,p.z-zone.z)<zone.radius && Math.abs(p.y-ROOM.mezzanineY)<0.7 &&
+      room?.clearApproach(p, scratch.set(zone.x, ROOM.mezzanineY, ROOM.stairsEndZ), 'slide')) return 'slide';
   const site=nearbySeat(p);
-  if (cat?.userData.activity && petSpot(p,cat.position,scratch) &&
+  if (cat?.userData.activity && petSpot(p,cat.position,scratch) && room?.clearApproach(p,scratch) &&
     (!site || Math.hypot(p.x-cat.position.x,p.z-cat.position.z)<Math.hypot(p.x-site.x,p.z-site.z))) return 'cat';
-  return site;
+  return site && room?.clearApproach(p,site,site.id) ? site : null;
 }
 
 function getLocationLabel(x: number, y: number, z: number): string {
@@ -117,6 +108,8 @@ function getLocationLabel(x: number, y: number, z: number): string {
 }
 
 export function PlayerController({
+  staticRoom,
+  roomRevision,
   viewMode,
   onViewModeChange,
   onHudUpdate,
@@ -124,6 +117,10 @@ export function PlayerController({
   input,
 }: PlayerControllerProps) {
   const { camera, gl, scene } = useThree();
+  const contacts = useRef<ReturnType<typeof buildRoomContacts> | null>(null);
+  useEffect(() => {
+    if (staticRoom.current) contacts.current = buildRoomContacts(staticRoom.current);
+  }, [staticRoom, roomRevision]);
 
   const playerGroupRef = useRef<THREE.Group>(null);
   const catGroupRef = useRef<THREE.Group>(null);
@@ -131,6 +128,7 @@ export function PlayerController({
   const spare = useMemo(() => new THREE.Vector3(), []);
   const animRef = useRef<CharacterAnimState>({
     pose: 'idle',
+    strideWeight: 1,
     distance: 0,
     terrain: 0,
     seat: 0,
@@ -176,7 +174,7 @@ export function PlayerController({
       if (pet.phase!=='off') { releasePet(pet); return; }
       if (sittingRef.current) { sittingRef.current.leaving=true; return; }
       if (!groundedRef.current || rideRef.current) return;
-      const p=posRef.current, cat=catGroupRef.current, choice=nearbyAction(p,cat,spare);
+      const p=posRef.current, cat=catGroupRef.current, choice=nearbyAction(p,cat,spare,contacts.current);
       if (!choice) return;
       if (choice==='cat') {
         const mode=cat!.userData.activity;
@@ -343,6 +341,7 @@ export function PlayerController({
   }, [gl, scene, viewMode, onViewModeChange, input, pet, spare]);
 
   useFrame(({ viewport, setDpr }, rawDelta) => {
+    if (!contacts.current) return;
     const dt = Math.min(rawDelta, 0.05);
 
     // Sample FPS every 0.5s without spamming React state
@@ -441,7 +440,8 @@ export function PlayerController({
         const floorAtNextX = getWalkableFloorY(nextX, pos.z, pos.y);
         if (
           floorAtNextX <= pos.y + MAX_STEP_UP &&
-          !collidesHorizontal(nextX, Math.max(pos.y, floorAtNextX), pos.z) &&
+          !outsideWalkableVolume(nextX, Math.max(pos.y, floorAtNextX), pos.z) &&
+          !contacts.current?.blocked(nextX, Math.max(pos.y, floorAtNextX), pos.z) &&
           !blocksCatFootprint(catGroupRef.current?.position, nextX, pos.y, pos.z, pos)
         ) {
           pos.x = nextX;
@@ -451,7 +451,8 @@ export function PlayerController({
         const floorAtNextZ = getWalkableFloorY(pos.x, nextZ, pos.y);
         if (
           floorAtNextZ <= pos.y + MAX_STEP_UP &&
-          !collidesHorizontal(pos.x, Math.max(pos.y, floorAtNextZ), nextZ) &&
+          !outsideWalkableVolume(pos.x, Math.max(pos.y, floorAtNextZ), nextZ) &&
+          !contacts.current?.blocked(pos.x, Math.max(pos.y, floorAtNextZ), nextZ) &&
           !blocksCatFootprint(catGroupRef.current?.position, pos.x, pos.y, nextZ, pos)
         ) {
           pos.z = nextZ;
@@ -488,14 +489,16 @@ export function PlayerController({
       }
 
       const groundY = getWalkableFloorY(pos.x, pos.z, pos.y);
-      if (groundedRef.current && pos.y - groundY <= MAX_STEP_UP) {
+      if (groundedRef.current && pos.y - groundY <= MAX_STEP_UP &&
+          (contacts.current?.vertical(pos.x,pos.z,pos.y,groundY) ?? groundY) === groundY) {
         pos.y = groundY;
         velYRef.current = 0;
       } else {
         velYRef.current += GRAVITY * dt;
-        pos.y = Math.max(groundY, pos.y + velYRef.current * dt);
-        groundedRef.current = pos.y === groundY;
-        if (groundedRef.current) velYRef.current = 0;
+        const to = Math.max(groundY, pos.y + velYRef.current * dt);
+        pos.y = contacts.current?.vertical(pos.x, pos.z, pos.y, to) ?? to;
+        groundedRef.current = pos.y === groundY || (velYRef.current < 0 && pos.y !== to);
+        if (groundedRef.current || pos.y !== to) velYRef.current = 0;
       }
 
       if (!groundedRef.current) {
@@ -517,6 +520,8 @@ export function PlayerController({
 
     const showCharacter = viewMode !== 'first-person';
     animRef.current.pose = pose;
+    animRef.current.strideWeight = !sitting && !rideRef.current && contacts.current
+      ? contacts.current.strideWeight(pos,facingYawRef.current) : 1;
     animRef.current.distance = pose === 'walk' || pose === 'run' ? distance : 0;
     animRef.current.terrain = terrain;
     animRef.current.seat = seat;
@@ -610,7 +615,7 @@ export function PlayerController({
       actionable=pet.phase!=='release';
       nextPrompt=actionable ? 'Selesai mengelus' : null;
     } else if (groundedRef.current) {
-      const choice=nearbyAction(pos,catGroupRef.current,spare);
+      const choice=nearbyAction(pos,catGroupRef.current,spare,contacts.current);
       actionable=!!choice;
       if(choice==='cat') nextPrompt='Elus kucing';
       else if(choice==='slide') nextPrompt='Naik perosotan';

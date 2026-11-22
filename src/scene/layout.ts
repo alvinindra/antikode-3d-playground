@@ -147,15 +147,6 @@ export const SOLID_OBSTACLES: AABB[] = [
     minZ: ROOM.focalBackZ,
     maxZ: ROOM.doorwayStartZ,
   },
-  // Low wooden shoe rack along left wall
-  {
-    minX: ROOM.leftWallX,
-    maxX: ROOM.leftWallX + 0.48,
-    minY: 0,
-    maxY: 0.68,
-    minZ: -5.15,
-    maxZ: -1.85,
-  },
   // Right outer wall
   {
     minX: ROOM.rightWallX - 0.05,
@@ -230,24 +221,6 @@ export const SOLID_OBSTACLES: AABB[] = [
     maxY: ROOM.mezzanineY - 0.05,
     minZ: ROOM.nookDividerZ,
     maxZ: ROOM.nookEndZ,
-  },
-  // Potted ficus tree next to nook
-  {
-    minX: ROOM.nookWallX - 0.72,
-    maxX: ROOM.nookWallX - 0.12,
-    minY: 0,
-    maxY: 1.5,
-    minZ: 5.55,
-    maxZ: 6.15,
-  },
-  // Slide left divider wall (prevents walking straight sideways through the slide curb)
-  {
-    minX: ROOM.slideLeftX - 0.1,
-    maxX: ROOM.slideLeftX + 0.1,
-    minY: 0.3,
-    maxY: 3.6,
-    minZ: ROOM.stairsStartZ,
-    maxZ: ROOM.stairsEndZ - 0.25,
   },
 ];
 

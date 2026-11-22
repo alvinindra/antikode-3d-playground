@@ -172,7 +172,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
   return (
     <group name="auditorium-and-nook">
       {/* === 6-TIER NATURAL WHITE OAK STEPPING AUDITORIUM (~100 PERSON SCALE) === */}
-      <group name="stepping-tiers">
+      <group name="stepping-tiers" userData={{ collision: 'terrain' }}>
         {tiers.map((tier) => {
           const zCenter = tier.zFront + ROOM.tierDepth * 0.5;
           const treadY = tier.topY - 0.033;
@@ -269,7 +269,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
 
       <group name="wooden-slide">
         <mesh
-          name="slide-bed" position={[SLIDE.centerX, 0, 0]}
+          name="slide-bed" userData={{ collision: 'terrain' }} position={[SLIDE.centerX, 0, 0]}
           geometry={slideBedGeo}
           material={mat.whiteOak}
           castShadow
@@ -277,6 +277,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
         />
         <mesh
           position={[ROOM.slideLeftX + SLIDE.cheekWidth / 2, 0, 0]}
+          userData={{ collision: 'faces' }}
           geometry={slideCurbGeo}
           material={mat.whiteOak}
           castShadow
@@ -284,6 +285,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
         />
         <mesh
           position={[ROOM.slideRightX - SLIDE.cheekWidth / 2, 0, 0]}
+          userData={{ collision: 'faces' }}
           geometry={slideCurbGeo}
           material={mat.whiteOak}
           castShadow
@@ -297,7 +299,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
             (ROOM.matMinZ + ROOM.matMaxZ) * 0.5,
           ]}
         >
-          <mesh position={[0, 0.09, 0]} material={mat.whiteOakDark}>
+          <mesh position={[0, 0.09, 0]} material={mat.whiteOakDark} userData={{ collision: 'terrain' }}>
             <boxGeometry
               args={[
                 ROOM.matMaxX - ROOM.matMinX - 0.1,
@@ -309,6 +311,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
           <mesh
             position={[0, ROOM.matHeight - 0.08, 0]}
             geometry={landingPadGeo}
+            userData={{ collision: 'terrain' }}
             material={mat.darkFabric}
             castShadow
             receiveShadow
@@ -328,6 +331,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
       <mesh
         position={[ROOM.nookWallX + 0.08, 0, 0]}
         geometry={darkSideWallGeo}
+        userData={{ collision: 'faces' }}
         material={mat.darkPlaster}
         castShadow
         receiveShadow
@@ -384,6 +388,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
       <group name="cozy-understairs-nook">
         {/* Oak floor plinth inside nook */}
         <mesh
+          userData={{ collision: 'terrain' }}
           position={[
             ROOM.nookWallX + ROOM.nookDepth * 0.5 - 0.04,
             0.09,
@@ -399,6 +404,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
         <mesh
           position={[ROOM.nookWallX + ROOM.nookDepth + 0.03, 0, 0]}
           geometry={nookBackWallGeo}
+          userData={{ collision: 'faces' }}
           material={mat.whiteOak}
           receiveShadow
         />
@@ -479,6 +485,7 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
         {/* --- RIGHT LOUNGE ALCOVE: OAK LEDGE + TWIN MATTRESS + BOLSTERS + LAMPS --- */}
         <mesh
           position={[ROOM.nookWallX + ROOM.nookDepth * 0.5, 0.22, 3.4]}
+          userData={{ collision: 'terrain' }}
           material={mat.whiteOak}
           receiveShadow
         >
@@ -498,12 +505,13 @@ export function AuditoriumAndNook({ ledOn }: AuditoriumAndNookProps) {
 
         {/* Smooth rounded twin dark-charcoal upholstered mattresses */}
         {NOOK_PADS.z.map((z,i)=><mesh key={z} name={`mattress-${i}`} position={[NOOK_PADS.x,NOOK_PADS.top-0.09,z]}
-          geometry={nookMattressGeo} material={mat.darkFabric} castShadow receiveShadow />)}
+          geometry={nookMattressGeo} userData={{ collision: 'terrain' }} material={mat.darkFabric} castShadow receiveShadow />)}
 
         {/* Smooth rounded cylindrical bolster pillows with soft hemispherical end-caps */}
-        {NOOK_PADS.z.map((bz) => (
+        {NOOK_PADS.z.map((bz, i) => (
           <mesh
             key={bz}
+            userData={{ seat: `mattress-${i}` }}
             position={[ROOM.nookWallX + 1.32, 0.45, bz]}
             rotation={[Math.PI / 2, 0, 0]}
             material={mat.darkFabric}

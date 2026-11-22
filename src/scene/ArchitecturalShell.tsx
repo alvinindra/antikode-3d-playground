@@ -142,6 +142,7 @@ export function ArchitecturalShell({
           (ROOM.turfStartZ + ROOM.turfEndZ) * 0.5,
         ]}
         material={mat.turf}
+        userData={{ collision: 'terrain' }}
         receiveShadow
       >
         <boxGeometry
@@ -310,6 +311,7 @@ export function ArchitecturalShell({
             (ROOM.stairsEndZ + ROOM.mezzanineEndZ) * 0.5,
           ]}
           material={mat.mezzanineCarpet}
+          userData={{ collision: 'terrain' }}
           receiveShadow
         >
           <boxGeometry
