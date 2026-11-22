@@ -1,10 +1,20 @@
 import { Box3, Group, InstancedMesh, Matrix4, Mesh, Object3D, Triangle, Vector3 } from 'three';
 import { OBB } from 'three/addons/math/OBB.js';
+import { getTierTopY, SOLID_OBSTACLES } from './layout.ts';
 
 // Standing envelope includes the shoulders and shoes, not just the pelvis.
 export const BODY_RADIUS = 0.38, BODY_HEIGHT = 1.80;
 const SKIN = 0.005, CELL = 2;
 type Solid = { bounds: Box3; box: OBB; seat?: string; faces?: Triangle[]; round?: {x: number; z: number; radius: number} };
+
+export function outsideWalkableVolume(x: number, y: number, z: number): boolean {
+  for (const box of SOLID_OBSTACLES) {
+    if (x + BODY_RADIUS > box.minX && x - BODY_RADIUS < box.maxX &&
+      z + BODY_RADIUS > box.minZ && z - BODY_RADIUS < box.maxZ && y + BODY_HEIGHT > box.minY &&
+      y + 0.15 < (box.beneathTiers ? Math.min(box.maxY, getTierTopY(z)) : box.maxY)) return true;
+  }
+  return false;
+}
 
 /** Bake only the static room. Walkable profiles and scripted seat contacts have their own solver. */
 export function buildRoomContacts(root: Group) {

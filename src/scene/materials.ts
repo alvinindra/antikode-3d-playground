@@ -43,6 +43,13 @@ export interface SceneMaterials {
   galleryPrintB: THREE.MeshStandardMaterial;
   exteriorDay: THREE.MeshBasicMaterial;
   exteriorNight: THREE.MeshBasicMaterial;
+  gardenDay: THREE.MeshBasicMaterial;
+  gardenNight: THREE.MeshBasicMaterial;
+  entryGlass: THREE.MeshStandardMaterial;
+  entryPlaster: THREE.MeshStandardMaterial;
+  entryConcrete: THREE.MeshStandardMaterial;
+  loungeCarpet: THREE.MeshStandardMaterial;
+  bentOak: THREE.MeshStandardMaterial;
 }
 
 let cachedMaterials: SceneMaterials | null = null;
@@ -51,6 +58,10 @@ export function getSceneMaterials(): SceneMaterials {
   if (cachedMaterials) return cachedMaterials;
 
   const tex = getProceduralTextures();
+  // The furniture is moulded from a single veneer, not a grid of floorboards.
+  const veneer = tex.oakMap.clone();
+  veneer.repeat.set(0.8, 0.07);
+  veneer.offset.set(0.03, 0.15);
 
   cachedMaterials = {
     concreteWall: new THREE.MeshStandardMaterial({
@@ -63,11 +74,9 @@ export function getSceneMaterials(): SceneMaterials {
     }),
     concreteFloor: new THREE.MeshStandardMaterial({
       map: tex.polishedFloorMap,
-      bumpMap: tex.concreteBump,
-      bumpScale: 0.008,
-      roughness: 0.42,
-      metalness: 0.08,
-      color: '#b5afa6',
+      roughness: 0.63,
+      metalness: 0.02,
+      color: '#d1d2cf',
     }),
     darkPlaster: new THREE.MeshStandardMaterial({
       map: tex.darkPlasterMap,
@@ -282,6 +291,20 @@ export function getSceneMaterials(): SceneMaterials {
     exteriorNight: new THREE.MeshBasicMaterial({
       map: tex.exteriorNightMap,
     }),
+    gardenDay: new THREE.MeshBasicMaterial({ map: tex.gardenDayMap }),
+    gardenNight: new THREE.MeshBasicMaterial({ map: tex.gardenNightMap, color: '#99adc5' }),
+    entryGlass: new THREE.MeshPhysicalMaterial({
+      color: '#b6c7be', transparent: true, opacity: 0.10, roughness: 0.22,
+      metalness: 0, specularIntensity: 0.32, depthWrite: false,
+    }),
+    entryPlaster: new THREE.MeshStandardMaterial({
+      map: tex.polishedFloorMap, color: '#777c81', roughness: 0.9,
+    }),
+    entryConcrete: new THREE.MeshStandardMaterial({
+      map: tex.polishedFloorMap, color: '#ccc7be', roughness: 0.9,
+    }),
+    loungeCarpet: new THREE.MeshStandardMaterial({ map: tex.beanbagFabricMap, color: '#484949', roughness: 1 }),
+    bentOak: new THREE.MeshStandardMaterial({ map: veneer, color: '#f2d4a6', roughness: 0.49 }),
   };
 
   return cachedMaterials;

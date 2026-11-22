@@ -130,7 +130,7 @@ export function SceneLighting({
 
           {/* Gallery corridor ambient fill */}
           <pointLight
-            position={[-7.2, 4.2, 4.4]}
+            position={[-9.15, 3.7, 3.6]}
             color="#e8d6be"
             intensity={11}
             distance={12}

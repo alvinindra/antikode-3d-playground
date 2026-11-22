@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { GALLERY_CHAIRS, getRoofY, ROOM, ROOF_SLOPE } from './layout';
+import { FOYER, getRoofY, ROOM, ROOF_SLOPE } from './layout';
 import { getSceneMaterials } from './materials';
+import { GalleryEntrance } from './GalleryEntrance';
 
 interface ArchitecturalShellProps {
   isDay: boolean;
@@ -27,6 +28,21 @@ export function ArchitecturalShell({
   const roofCenterY = getRoofY(roofCenterX);
   const hallDepth = ROOM.mezzanineEndZ - ROOM.focalBackZ + 0.4;
   const hallCenterZ = (ROOM.focalBackZ + ROOM.mezzanineEndZ) * 0.5;
+  const galleryWall = useMemo(() => {
+    // A single concrete face from the art rail over the opening, stopping before the balcony.
+    const section = new THREE.Shape();
+    section.moveTo(ROOM.focalBackZ, 0);
+    section.lineTo(ROOM.doorwayStartZ, 0);
+    section.lineTo(ROOM.doorwayStartZ, FOYER.hallHeadY);
+    section.lineTo(ROOM.doorwayEndZ + 0.22, FOYER.hallHeadY);
+    section.lineTo(ROOM.doorwayEndZ + 0.22, ROOM.roofLeftY + 0.1);
+    section.lineTo(ROOM.focalBackZ, ROOM.roofLeftY + 0.1);
+    section.closePath();
+    const geo = new THREE.ExtrudeGeometry(section, { depth: 0.28, bevelEnabled: false });
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 8, uv.getY(i) / 7);
+    return geo;
+  }, []);
 
   // Compute purlin positions across the full sloped roof
   const purlins = useMemo(() => {
@@ -154,94 +170,18 @@ export function ArchitecturalShell({
         />
       </mesh>
 
-      {/* === LEFT CONCRETE WALL (with open doorway to lounge/gallery) === */}
-      {/* Solid section alongside focal wall, paintings & shoe rack */}
-      <mesh
-        position={[
-          ROOM.leftWallX - 0.14,
-          ROOM.roofLeftY * 0.5,
-          (ROOM.focalBackZ + ROOM.doorwayStartZ) * 0.5,
-        ]}
-        material={mat.concreteWall}
-        receiveShadow
-        castShadow
-      >
-        <boxGeometry
-          args={[0.28, ROOM.roofLeftY + 0.2, ROOM.doorwayStartZ - ROOM.focalBackZ]}
-        />
+      <mesh name="hall-entrance-reveal" position-x={ROOM.leftWallX} rotation-y={-Math.PI / 2}
+        geometry={galleryWall} material={mat.entryConcrete} userData={{ collision: 'faces' }} castShadow receiveShadow />
+      <mesh position={[ROOM.leftWallX - 0.14, ROOM.roofLeftY - 0.21,
+        (ROOM.doorwayEndZ + 0.22 + ROOM.mezzanineEndZ) / 2]} material={mat.darkPlaster} receiveShadow>
+        <boxGeometry args={[0.28, 0.54, ROOM.mezzanineEndZ - ROOM.doorwayEndZ - 0.22]} />
+      </mesh>
+      <mesh name="hall-entrance-post" position={[ROOM.leftWallX - 0.08, FOYER.hallHeadY / 2, ROOM.doorwayEndZ + 0.11]}
+        material={mat.blackSteel} castShadow receiveShadow>
+        <boxGeometry args={[0.17, FOYER.hallHeadY, 0.22]} />
       </mesh>
 
-      {/* Upper concrete wall header spanning above the doorway & side passage (Photo 2) */}
-      <mesh
-        position={[
-          ROOM.leftWallX - 0.14,
-          (3.25 + ROOM.roofLeftY) * 0.5,
-          (ROOM.doorwayStartZ + ROOM.mezzanineEndZ) * 0.5,
-        ]}
-        material={mat.concreteWall}
-        receiveShadow
-      >
-        <boxGeometry
-          args={[
-            0.28,
-            ROOM.roofLeftY - 3.25 + 0.2,
-            ROOM.mezzanineEndZ - ROOM.doorwayStartZ,
-          ]}
-        />
-      </mesh>
-
-      {/* Concrete pier framing the doorway edge */}
-      <mesh
-        position={[ROOM.leftWallX - 0.14, 1.65, ROOM.doorwayEndZ + 0.18]}
-        material={mat.concreteWall}
-        receiveShadow
-      >
-        <boxGeometry args={[0.28, 3.3, 0.36]} />
-      </mesh>
-
-      {/* === SIDE LOUNGE / GALLERY ENCLOSURE (visible through doorway & behind Photo 3) === */}
-      {/* Front closing wall of the side gallery */}
-      <mesh
-        position={[
-          (ROOM.galleryMinX + ROOM.leftWallX) * 0.5,
-          ROOM.roofLeftY * 0.5,
-          ROOM.doorwayStartZ - 0.45,
-        ]}
-        material={mat.darkPlaster}
-      >
-        <boxGeometry args={[ROOM.leftWallX - ROOM.galleryMinX + 0.4, ROOM.roofLeftY + 0.6, 0.25]} />
-      </mesh>
-      {/* Far left gallery boundary wall */}
-      <mesh
-        position={[ROOM.galleryMinX - 0.15, ROOM.roofLeftY * 0.5, hallCenterZ]}
-        material={mat.darkPlaster}
-      >
-        <boxGeometry args={[0.3, ROOM.roofLeftY + 1.2, hallDepth]} />
-      </mesh>
-      {/* Minimalist lounge chairs & side table visible through Photo 2 doorway */}
-      <group>
-        {GALLERY_CHAIRS.map((c,i) => (
-          <group key={i} name={`gallery-chair-${i}`} position={[c.x, 0, c.z]} rotation-y={c.yaw}>
-            <mesh position={[0, c.top-0.05, 0]} material={mat.darkFabric}>
-              <boxGeometry args={[0.75, 0.1, 0.72]} />
-            </mesh>
-            <mesh position={[0, 0.68, -0.28]} rotation-x={-0.22} material={mat.darkFabric}>
-              <boxGeometry args={[0.75, 0.58, 0.1]} />
-            </mesh>
-            {[-0.30, 0.30].map(x => (
-              <mesh key={x} position={[x, 0.165, 0]} material={mat.whiteOakDark} castShadow>
-                <boxGeometry args={[0.036, 0.33, 0.59]} />
-              </mesh>
-            ))}
-          </group>
-        ))}
-        <mesh position={[-7.75, 0.28, 2.25]} material={mat.whiteOakDark}>
-          <cylinderGeometry args={[0.42, 0.42, 0.05, 16]} />
-        </mesh>
-        <mesh position={[-7.75, 0.14, 2.25]} material={mat.blackSteel}>
-          <cylinderGeometry args={[0.04, 0.04, 0.28, 10]} />
-        </mesh>
-      </group>
+      <GalleryEntrance isDay={isDay} ledOn={ledOn} />
 
       {/* === RIGHT CONCRETE WALL WITH PANORAMIC CLERESTORY WINDOWS === */}
       {/* Lower solid concrete wall */}
@@ -438,7 +378,7 @@ export function ArchitecturalShell({
 
       {/* Heavy black steel I-beam portal frames (columns ONLY at structural bays — never intersecting paintings/shoe rack!) */}
       {FRAME_Z_POSITIONS.map((fz) => {
-        const showLeftColumn = fz < -6.5 || (fz > -1.2 && fz < 0.8) || fz > 9.5;
+        const showLeftColumn = fz < -6.5 || fz > 9.5;
         const showRightColumn = fz < -6.5 || (fz > -1.2 && fz < 0.8) || fz > 6.5;
         return (
           <group key={fz} position={[0, 0, fz]}>

@@ -3,12 +3,11 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
   CAMERA_PRESETS,
+  FOYER,
   getRoofY,
-  getTierTopY,
   getWalkableFloorY,
   INTERACTION_ZONES,
   ROOM,
-  SOLID_OBSTACLES,
   stairInfluence,
   travelBaseY,
 } from './layout';
@@ -18,9 +17,9 @@ import { StudioCat } from './StudioCat';
 import { blocksCatFootprint } from './catRoutine';
 import { advancePet, beginPet, createPetInteraction, petSpot, releasePet } from './petInteraction';
 import { advanceSeat, nearbySeat, takeSeat, type SeatUse } from './seating';
-import { BODY_RADIUS, BODY_HEIGHT, buildRoomContacts } from './roomContacts';
+import { buildRoomContacts, outsideWalkableVolume } from './roomContacts';
 
-export type ViewMode = 'third-person' | 'first-person' | 'photo1' | 'photo2' | 'photo3' | 'overview';
+export type ViewMode = 'third-person' | 'first-person' | (typeof CAMERA_PRESETS)[number]['id'];
 
 export interface PlayerInput {
   x: number;
@@ -49,25 +48,6 @@ const JUMP_VELOCITY = 6.2;
 const WALK_SPEED = 1.5;
 const RUN_SPEED = 3.65;
 const MAX_STEP_UP = 0.56;
-
-function outsideWalkableVolume(x: number, y: number, z: number): boolean {
-  const minY = y + 0.15;
-  const maxY = y + BODY_HEIGHT;
-
-  for (const box of SOLID_OBSTACLES) {
-    if (
-      x + BODY_RADIUS > box.minX &&
-      x - BODY_RADIUS < box.maxX &&
-      z + BODY_RADIUS > box.minZ &&
-      z - BODY_RADIUS < box.maxZ &&
-      maxY > box.minY &&
-      minY < (box.beneathTiers ? Math.min(box.maxY, getTierTopY(z)) : box.maxY)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
 
 function nearbyAction(p: THREE.Vector3, cat: THREE.Group | null, scratch: THREE.Vector3, room: ReturnType<typeof buildRoomContacts> | null) {
   const zone=INTERACTION_ZONES.slideTop;
@@ -101,6 +81,7 @@ function getLocationLabel(x: number, y: number, z: number): string {
   if (x >= ROOM.turfLeftX && z >= ROOM.turfStartZ && z <= ROOM.turfEndZ) {
     return 'Playground Turf';
   }
+  if (x < ROOM.leftWallX && z < FOYER.endZ) return 'Entrance Galeri';
   if (x < ROOM.nookWallX && z >= 0.5) {
     return 'Nook Gallery Corridor';
   }
@@ -117,6 +98,8 @@ export function PlayerController({
   input,
 }: PlayerControllerProps) {
   const { camera, gl, scene } = useThree();
+  const presetView = CAMERA_PRESETS.find(p => p.id === viewMode);
+  const entryPhoto = viewMode === 'entrance' || viewMode === 'entrance-hall';
   const contacts = useRef<ReturnType<typeof buildRoomContacts> | null>(null);
   useEffect(() => {
     if (staticRoom.current) contacts.current = buildRoomContacts(staticRoom.current);
@@ -197,14 +180,12 @@ export function PlayerController({
       if (viewMode!=='third-person' && viewMode!=='first-person') onViewModeChange('third-person');
     };
     const command = (code: string) => {
-      if (/^(Key[WASDF]|Arrow(Up|Down|Left|Right)|Space|Digit[1-4])$/.test(code)) releasePet(pet);
+      const preset = /^Digit[1-9]$/.test(code) ? CAMERA_PRESETS[Number(code.slice(5)) - 1] : undefined;
+      if (preset || /^(Key[WASDF]|Arrow(Up|Down|Left|Right)|Space)$/.test(code)) releasePet(pet);
       if (sittingRef.current && /^(Key[WASD]|Arrow(Up|Down|Left|Right)|Space)$/.test(code)) sittingRef.current.leaving=true;
 
       if (code === 'Space') jumpPressed.current = true;
-      else if (code === 'Digit1') onViewModeChange('photo1');
-      else if (code === 'Digit2') onViewModeChange('photo2');
-      else if (code === 'Digit3') onViewModeChange('photo3');
-      else if (code === 'Digit4') onViewModeChange('overview');
+      else if (preset) onViewModeChange(preset.id);
       else if (code === 'KeyV') {
         onViewModeChange(viewMode === 'first-person' ? 'third-person' : 'first-person');
       } else if (code === 'KeyF') {
@@ -548,14 +529,16 @@ export function PlayerController({
       );
 
       // Clamp camera cleanly inside architectural walls & sloped roof
-      const minWallX = pos.z > ROOM.doorwayStartZ - 0.1 ? ROOM.galleryMinX + 0.35 : ROOM.leftWallX + 0.35;
+      const inGallery = pos.x < ROOM.leftWallX;
+      const minWallX = inGallery || pos.z > ROOM.doorwayStartZ - 0.1 ? ROOM.galleryMinX + 0.35 : ROOM.leftWallX + 0.35;
       desiredCamPos.x = THREE.MathUtils.clamp(desiredCamPos.x, minWallX, ROOM.rightWallX - 0.35);
       desiredCamPos.z = THREE.MathUtils.clamp(
         desiredCamPos.z,
-        ROOM.focalFrontZ + 0.35,
+        (inGallery ? FOYER.outerZ : ROOM.focalFrontZ) + 0.35,
         ROOM.mezzanineEndZ - 0.35
       );
-      const roofLimit = getRoofY(desiredCamPos.x) - 0.65;
+      const underSoffit = inGallery && pos.z < FOYER.endZ && pos.y < FOYER.ceilingY;
+      const roofLimit = underSoffit ? FOYER.ceilingY - 0.16 : getRoofY(desiredCamPos.x) - 0.65;
       const aboveTread = terrain && desiredCamPos.x >= ROOM.nookWallX && desiredCamPos.x < ROOM.slideLeftX;
       const cameraFloor = aboveTread ? getWalkableFloorY(desiredCamPos.x, desiredCamPos.z, ROOM.mezzanineY) + 0.26 : 0.45;
       desiredCamPos.y = THREE.MathUtils.clamp(desiredCamPos.y, cameraFloor, roofLimit);
@@ -570,10 +553,17 @@ export function PlayerController({
       );
       desiredFov = 68;
     } else {
-      const preset = CAMERA_PRESETS.find((p) => p.id === viewMode) ?? CAMERA_PRESETS[0];
+      const preset = presetView ?? CAMERA_PRESETS[0];
       desiredCamPos.set(...preset.position);
       desiredLookAt.set(...preset.target);
       desiredFov = preset.fov;
+      if (preset.portrait && viewport.aspect < 1.2) {
+        // On a phone, look past the chairs toward the door instead of cropping both out.
+        const mix = 1 - THREE.MathUtils.smoothstep(viewport.aspect, 0.60, 1.2);
+        desiredCamPos.lerp(spare.set(...preset.portrait.position), mix);
+        desiredLookAt.lerp(spare.set(...preset.portrait.target), mix);
+        desiredFov = THREE.MathUtils.lerp(desiredFov, preset.portrait.fov, mix);
+      }
     }
 
     if (pet.weight>0 && (viewMode==='third-person' || viewMode==='first-person')) {
@@ -622,7 +612,8 @@ export function PlayerController({
       else if(choice) nextPrompt=`Duduk di ${choice.label}`;
     }
 
-    const locationLabel = getLocationLabel(pos.x, pos.y, pos.z);
+    if (entryPhoto) { nextPrompt = null; actionable = false; }
+    const locationLabel = entryPhoto && presetView ? presetView.label.split(' · ')[1] : getLocationLabel(pos.x, pos.y, pos.z);
     if (
       nextPrompt !== lastHudPromptRef.current ||
       locationLabel !== lastHudLocationRef.current
@@ -635,7 +626,7 @@ export function PlayerController({
 
   return (
     <>
-      <group name="player" ref={playerGroupRef}>
+      <group name="player" ref={playerGroupRef} visible={!entryPhoto}>
         <Suspense fallback={null}>
           <RealisticCharacter animRef={animRef} pet={pet} />
         </Suspense>

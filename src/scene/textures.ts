@@ -57,6 +57,8 @@ export interface ProceduralTextureSet {
   mezzanineTimelineMap: THREE.CanvasTexture;
   exteriorDayMap: THREE.CanvasTexture;
   exteriorNightMap: THREE.CanvasTexture;
+  gardenDayMap: THREE.CanvasTexture;
+  gardenNightMap: THREE.CanvasTexture;
 }
 
 let cachedTextures: ProceduralTextureSet | null = null;
@@ -223,6 +225,26 @@ function generateWhiteOakTextures(): { map: THREE.CanvasTexture; bump: THREE.Can
     map: configureTexture(canvas, 2, 2, true),
     bump: configureTexture(bumpCanvas, 2, 2, false),
   };
+}
+
+function microcementMap(): THREE.CanvasTexture {
+  const size = 512, [canvas, ctx] = makeCanvas(size, size), rand = createSeededRandom(303);
+  const layers = [4, 12, 36].map(n => ({ n, noise: Array.from({ length: n * n }, rand) }));
+  const sample = ({ n, noise }: typeof layers[number], x: number, y: number) => {
+    const u = x * n / size, v = y * n / size, i = Math.floor(u), j = Math.floor(v);
+    const s = THREE.MathUtils.smoothstep(u - i, 0, 1), t = THREE.MathUtils.smoothstep(v - j, 0, 1);
+    const at = (a: number, b: number) => noise[(b % n) * n + a % n];
+    return THREE.MathUtils.lerp(THREE.MathUtils.lerp(at(i, j), at(i + 1, j), s),
+      THREE.MathUtils.lerp(at(i, j + 1), at(i + 1, j + 1), s), t) - 0.5;
+  };
+  const image = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const i = (y * size + x) * 4, grey = 169 + 23 * sample(layers[0], x, y) +
+      13 * sample(layers[1], x, y) + 7 * sample(layers[2], x, y) + (rand() - 0.5) * 9;
+    image.data[i] = grey + 1; image.data[i + 1] = grey; image.data[i + 2] = grey - 1; image.data[i + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  return configureTexture(canvas, 4, 4);
 }
 
 function generateTurfTextures(): { map: THREE.CanvasTexture; bump: THREE.CanvasTexture } {
@@ -687,12 +709,64 @@ function generateExteriorBackdrop(isDay: boolean): THREE.CanvasTexture {
   return tex;
 }
 
+// A garden at eye level, rather than the roofline seen through the hall clerestory.
+function gardenView(day: boolean): THREE.CanvasTexture {
+  const [canvas, ctx] = makeCanvas(1024, 512);
+  const rand = createSeededRandom(823);
+  const sky = ctx.createLinearGradient(0, 0, 0, 512);
+  sky.addColorStop(0, day ? '#bccacc' : '#243346');
+  sky.addColorStop(0.66, day ? '#e2e4d9' : '#526172');
+  sky.addColorStop(1, day ? '#a4aa93' : '#414b4d');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, 1024, 512);
+  ctx.fillStyle = day ? '#a6aa9d' : '#343f46';
+  ctx.fillRect(0, 342, 1024, 170);
+  for (let i = 0; i < 14; i++) {
+    const y = 290 + rand() * 60;
+    ctx.fillStyle = day ? '#a8aba4' : '#39424d';
+    ctx.fillRect(i * 80 - 18, y, 74 + rand() * 50, 55);
+    ctx.fillStyle = day ? '#bfc2b8' : '#505963';
+    ctx.fillRect(i * 80 - 21, y - 4, 100, 5);
+  }
+
+  const leaves = day ? ['#687761', '#758368', '#849073', '#929c82'] : ['#202e35', '#27373b', '#304143', '#374949'];
+  function branch(x: number, y: number, length: number, angle: number, level: number) {
+    const tx = x + Math.sin(angle) * length, ty = y - Math.cos(angle) * length;
+    ctx.strokeStyle = day ? '#62685a' : '#28343a';
+    ctx.lineWidth = 0.55 + level * level * 0.21;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.stroke();
+    if (level > 0) {
+      branch(tx, ty, length * (0.6 + rand() * 0.2), angle - 0.2 - rand() * 0.58, level - 1);
+      branch(tx, ty, length * (0.6 + rand() * 0.2), angle + 0.2 + rand() * 0.58, level - 1);
+    } else {
+      for (let i = 0; i < 75; i++) {
+        const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * length * 1.5;
+        ctx.fillStyle = leaves[Math.floor(rand() * leaves.length)];
+        ctx.beginPath();
+        ctx.ellipse(tx + Math.cos(a) * r, ty + Math.sin(a) * r * 0.72, 1.4 + rand() * 4, 1 + rand() * 2.5, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  for (let i = 0; i < 9; i++) branch(i * 144 - 42, 415, 59 + rand() * 63, (rand() - 0.5) * 0.4, 5);
+  ctx.fillStyle = day ? '#65705a' : '#293434';
+  ctx.fillRect(0, 399, 1024, 113);
+  for (let i = 0; i < 18000; i++) {
+    const x = rand() * 1024, y = 388 + 6 * Math.sin(x * 0.017) + rand() * 128;
+    ctx.fillStyle = leaves[i % leaves.length];
+    ctx.globalAlpha = 0.28 + rand() * 0.35;
+    ctx.beginPath(); ctx.ellipse(x, y, 1 + rand() * 2.7, 0.6 + rand() * 1.5, rand() * Math.PI, 0, Math.PI * 2); ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export function getProceduralTextures(): ProceduralTextureSet {
   if (cachedTextures) return cachedTextures;
 
   const concrete = generatePlasterTextures([148, 143, 134], 24, 101, 3, 2, 1024);
   const darkPlaster = generatePlasterTextures([56, 55, 54], 16, 202, 3, 2, 1024);
-  const polishedFloor = generatePlasterTextures([122, 118, 112], 18, 303, 5, 5, 1024);
   const oak = generateWhiteOakTextures();
   const turf = generateTurfTextures();
 
@@ -702,7 +776,7 @@ export function getProceduralTextures(): ProceduralTextureSet {
     concreteBump: concrete.bump,
     darkPlasterMap: darkPlaster.map,
     darkPlasterBump: darkPlaster.bump,
-    polishedFloorMap: polishedFloor.map,
+    polishedFloorMap: microcementMap(),
     oakMap: oak.map,
     oakBump: oak.bump,
     turfMap: turf.map,
@@ -720,6 +794,8 @@ export function getProceduralTextures(): ProceduralTextureSet {
     mezzanineTimelineMap: generateMezzanineTimelineTexture(),
     exteriorDayMap: generateExteriorBackdrop(true),
     exteriorNightMap: generateExteriorBackdrop(false),
+    gardenDayMap: gardenView(true),
+    gardenNightMap: gardenView(false),
   };
 
   return cachedTextures;

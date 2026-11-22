@@ -16,7 +16,7 @@ for(const b of TURF_BEANBAGS) {
   }
 }
 for(const z of NOOK_PADS.z) approach.push(new Vector3(ROOM.nookWallX-0.6,0,z));
-for(const c of GALLERY_CHAIRS) approach.push(new Vector3(c.x,0,c.z+0.75));
+for(const c of GALLERY_CHAIRS) approach.push(new Vector3(c.x+0.9,0,c.z));
 for(let i=0;i<ROOM.tierCount;i++) approach.push(new Vector3(-1,(i+1)*ROOM.tierHeight,ROOM.stairsStartZ+(i+0.30)*ROOM.tierDepth));
 
 test('all five bags, both chairs, all tiers and each mattress have a local, reversible interaction',()=>{

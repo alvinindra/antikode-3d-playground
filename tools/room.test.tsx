@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, expect, mock, test } from 'bun:test';
 import { act, createRoot, extend } from '@react-three/fiber/dist/react-three-fiber.esm.js';
 import * as THREE from 'three';
-import { buildRoomContacts, BODY_HEIGHT, BODY_RADIUS } from '../src/scene/roomContacts';
-import { GALLERY_CHAIRS, getWalkableFloorY, NOOK_PADS, ROOM, TURF_BEANBAGS, WALK_STEP } from '../src/scene/layout';
+import { buildRoomContacts, BODY_HEIGHT, BODY_RADIUS, outsideWalkableVolume } from '../src/scene/roomContacts';
+import { FOYER, GALLERY_CHAIRS, getWalkableFloorY, NOOK_PADS, ROOM, TURF_BEANBAGS, WALK_STEP } from '../src/scene/layout';
 import { nearbySeat } from '../src/scene/seating';
 import { beginSlide, sampleRide } from '../src/scene/slideRide';
 
@@ -46,11 +46,30 @@ test('the actual credit frame stops a running approach at both ends and in the m
 });
 
 test('standing solids include the pier, artwork, ficus, chairs, glass and equipment case', () => {
+  const chair = GALLERY_CHAIRS[0];
   for (const [name, x, y, z] of [
     ['door pier', -6.53, 0, 2.53], ['right canvas', 5.65, 0, -3.45],
-    ['ficus', -4.35, 0, 5.85], ['gallery chair back', -8.3, 0.63, 1.02],
+    ['ficus', -4.35, 0, 5.85],
+    ['gallery chair back', chair.x - 0.32 * Math.sin(chair.yaw), chair.top + 0.25, chair.z - 0.32 * Math.cos(chair.yaw)],
     ['meeting glass', 0, ROOM.mezzanineY, 8.12], ['equipment case', 3.06, 0, ROOM.focalFrontZ + 0.32],
   ] as const) expect(room.blocked(x,y,z), name).toBe(true);
+});
+
+test('the hall and vestibule connect around the open glass leaf without walking through glass', () => {
+  const at = (x: number, z: number) => new THREE.Vector3(ROOM.galleryMinX + x, 0, FOYER.doorZ + z);
+  const path = [at(5.2, 1.3), at(3.05, 1.3), at(3.05, -0.23), at(3.26, -0.58), at(3.38, -1.4)];
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i];
+    expect(room.clearApproach(a, b), `obstruction on entry segment ${i}`).toBe(true);
+    const steps = Math.ceil(a.distanceTo(b) / 0.08);
+    for (let j = 0; j <= steps; j++) {
+      const p = new THREE.Vector3().lerpVectors(a, b, j / steps);
+      expect(outsideWalkableVolume(p.x, 0, p.z), 'obsolete perimeter inside the vestibule').toBe(false);
+    }
+  }
+  const pane = scene.getObjectByName('entry-pivot-leaf')!.localToWorld(new THREE.Vector3(0.55, 0, 0));
+  expect(room.blocked(pane.x, 0, pane.z), 'glass leaf').toBe(true);
+  expect(room.blocked(ROOM.galleryMinX, 0, 2.0), 'garden window').toBe(true);
 });
 
 test('the doorway, both stair lanes and the open deck are still traversable', () => {

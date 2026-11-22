@@ -45,8 +45,20 @@ export const ROOM = {
   matHeight: 0.32,
 } as const;
 
+export const FOYER = {
+  doorZ: ROOM.doorwayStartZ - 0.5,
+  outerZ: ROOM.doorwayStartZ - 2.5,
+  endZ: 4.5, // front edge of the gallery balcony
+  rooflightY: 3.28,
+  ceilingY: ROOM.mezzanineY - 0.28,
+  hallHeadY: 2.75,
+} as const;
+
 export const NOOK_PADS = { x: ROOM.nookWallX + 0.78, z: [4.06, 4.89], width: 1.42, depth: 0.81, top: 0.34 };
-export const GALLERY_CHAIRS = [0, 1].map(i => ({ x: -8.3 + 1.15*i, z: 1.3 + 0.25*i, yaw: -0.35*i, top: 0.43 }));
+export const GALLERY_CHAIRS = [
+  { x: -10.07, z: 1.96, yaw: 2.04, top: 0.39 },
+  { x: -9.36, z: 3.00, yaw: 2.37, top: 0.39 },
+];
 
 export interface BeanbagSpec {
   x: number;
@@ -180,17 +192,17 @@ export const SOLID_OBSTACLES: AABB[] = [
     maxX: ROOM.galleryMinX + 0.05,
     minY: 0,
     maxY: 8.0,
-    minZ: ROOM.doorwayStartZ - 0.5,
+    minZ: FOYER.outerZ - 0.3,
     maxZ: ROOM.mezzanineEndZ + 0.5,
   },
-  // Front wall closing the side gallery near doorwayStartZ
+  // Back of the entry vestibule, beyond the glass door.
   {
     minX: ROOM.galleryMinX - 0.4,
     maxX: ROOM.leftWallX,
     minY: 0,
     maxY: 8.0,
-    minZ: ROOM.doorwayStartZ - 0.6,
-    maxZ: ROOM.doorwayStartZ - 0.15,
+    minZ: FOYER.outerZ - 0.3,
+    maxZ: FOYER.outerZ,
   },
   // Solid dark concrete wall under mezzanine (to the right of the nook, Z = 5.35..9.3)
   {
@@ -349,12 +361,16 @@ export function standingFootZ(z: number, x: number, targetZ: number): number {
   return THREE.MathUtils.clamp(targetZ, edge + margin, edge + depth - margin);
 }
 
-export interface CameraPreset {
-  id: 'photo1' | 'photo2' | 'photo3' | 'overview';
-  label: string;
+interface CameraShot {
   position: [number, number, number];
   target: [number, number, number];
   fov: number;
+}
+
+export interface CameraPreset extends CameraShot {
+  id: 'photo1' | 'photo2' | 'photo3' | 'overview' | 'entrance' | 'entrance-hall';
+  label: string;
+  portrait?: CameraShot;
 }
 
 export const CAMERA_PRESETS: CameraPreset[] = [
@@ -385,6 +401,22 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     position: [4.6, 4.45, 7.1],
     target: [-1.2, 1.4, -2.5],
     fov: 58,
+  },
+  {
+    id: 'entrance',
+    label: 'Sudut 5 · Entrance Galeri',
+    position: [-7.19, 1.32, 5.26],
+    target: [-9.68, 1.18, 0.65],
+    fov: 54,
+    portrait: { position: [-9.32, 1.44, 6.24], target: [-8.53, 1.33, 0.44], fov: 63 },
+  },
+  {
+    id: 'entrance-hall',
+    label: 'Sudut 6 · Entrance dari Turf',
+    position: [-0.40, 1.53, -3.65],
+    target: [-6.4, 1.40, 1.18],
+    fov: 43,
+    portrait: { position: [-0.40, 1.52, -4.04], target: [-6.4, 1.36, 1.05], fov: 55 },
   },
 ];
 

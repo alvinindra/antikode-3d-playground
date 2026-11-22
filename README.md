@@ -17,6 +17,9 @@ npm run dev
 Buka alamat yang ditampilkan Vite. Gunakan `WASD` untuk berjalan, `Shift` untuk
 berlari, dan `Space` untuk melompat. Dekati kucing, tempat duduk, atau perosotan
 dan tekan `E` saat petunjuk muncul. Tekan `V` untuk mengganti sudut pandang.
+Untuk melihat entrance, tekan `5` dari sisi lounge atau `6` dari sisi tribun.
+Kedua sudut juga tersedia di **Info → Kamera**; pilih **Mode siang** untuk
+melihat cahaya dari skylight dan jendela taman.
 
 ## Verifikasi
 
