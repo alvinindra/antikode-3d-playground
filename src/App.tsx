@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ArchitecturalShell } from './scene/ArchitecturalShell';
@@ -7,6 +7,7 @@ import { AuditoriumAndNook } from './scene/AuditoriumAndNook';
 import { PlayerController, PlayerHudCallbackState, ViewMode, type PlayerInput } from './scene/PlayerController';
 import { SceneLighting } from './scene/SceneLighting';
 import { HUD } from './components/HUD';
+import { LoadingScreen } from './components/LoadingScreen';
 
 export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('third-person');
@@ -45,6 +46,7 @@ export function App() {
           toneMappingExposure: 1.08,
         }}
       >
+        <Suspense fallback={null}>
         <SceneLighting
           isDay={isDay}
           ledOn={ledOn}
@@ -67,12 +69,14 @@ export function App() {
           onFpsSample={handleFpsSample}
           input={input.current}
         />
+        </Suspense>
       </Canvas>
   ), [viewMode, isDay, ledOn, spotlightsOn, bloomEnabled, screenOn, handleHudUpdate, handleFpsSample]);
 
   return (
     <div className="playground">
       {scene}
+      <LoadingScreen />
       <HUD
         viewMode={viewMode}
         onViewModeChange={setViewMode}
