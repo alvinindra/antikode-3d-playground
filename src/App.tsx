@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { ArchitecturalShell } from './scene/ArchitecturalShell';
 import { FocalOakWall } from './scene/FocalOakWall';
 import { AuditoriumAndNook } from './scene/AuditoriumAndNook';
-import { PlayerController, PlayerHudCallbackState, ViewMode } from './scene/PlayerController';
+import { PlayerController, PlayerHudCallbackState, ViewMode, type PlayerInput } from './scene/PlayerController';
 import { SceneLighting } from './scene/SceneLighting';
 import { HUD } from './components/HUD';
 
@@ -16,7 +16,7 @@ export function App() {
   const [bloomEnabled, setBloomEnabled] = useState(true);
   const [screenOn, setScreenOn] = useState(true);
   const [fps, setFps] = useState(60);
-  const interactRequest = useRef<(() => void) | null>(null);
+  const input = useRef<PlayerInput>({x:0,forward:0});
   const [hudState, setHudState] = useState<PlayerHudCallbackState>({
     prompt: null,
     locationLabel: 'Playground Turf',
@@ -60,13 +60,13 @@ export function App() {
           onViewModeChange={setViewMode}
           onHudUpdate={handleHudUpdate}
           onFpsSample={handleFpsSample}
-          interactRequest={interactRequest}
+          input={input.current}
         />
       </Canvas>
   ), [viewMode, isDay, ledOn, spotlightsOn, bloomEnabled, screenOn, handleHudUpdate, handleFpsSample]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div className="playground">
       {scene}
       <HUD
         viewMode={viewMode}
@@ -84,7 +84,8 @@ export function App() {
         fps={fps}
         locationLabel={hudState.locationLabel}
         interactionPrompt={hudState.prompt}
-        onInteract={hudState.actionable ? () => interactRequest.current?.() : undefined}
+        input={input.current}
+        onInteract={hudState.actionable ? () => input.current.command?.('KeyE') : undefined}
       />
     </div>
   );

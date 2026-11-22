@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -23,6 +23,12 @@ import { advanceSeat, nearbySeat, takeSeat, type SeatUse } from './seating';
 
 export type ViewMode = 'third-person' | 'first-person' | 'photo1' | 'photo2' | 'photo3' | 'overview';
 
+export interface PlayerInput {
+  x: number;
+  forward: number;
+  command?: (code: 'KeyE' | 'KeyF' | 'KeyR' | 'Space') => void;
+}
+
 export interface PlayerHudCallbackState {
   prompt: string | null;
   locationLabel: string;
@@ -34,7 +40,7 @@ interface PlayerControllerProps {
   onViewModeChange: (mode: ViewMode) => void;
   onHudUpdate: (info: PlayerHudCallbackState) => void;
   onFpsSample: (fps: number) => void;
-  interactRequest: RefObject<(() => void) | null>;
+  input: PlayerInput;
 }
 
 const PLAYER_RADIUS = 0.28;
@@ -115,7 +121,7 @@ export function PlayerController({
   onViewModeChange,
   onHudUpdate,
   onFpsSample,
-  interactRequest,
+  input,
 }: PlayerControllerProps) {
   const { camera, gl, scene } = useThree();
 
@@ -147,8 +153,6 @@ export function PlayerController({
   const camYawRef = useRef(0.12); // behind character looking toward auditorium
   const camPitchRef = useRef(0.24);
   const camDistRef = useRef(3.6);
-  const isDraggingRef = useRef(false);
-  const lastPointerRef = useRef({ x: 0, y: 0 });
   const camPosSmoothRef = useRef(new THREE.Vector3(-0.35, 2.2, -6.5));
   const camLookSmoothRef = useRef(new THREE.Vector3(-0.35, 1.3, -2.0));
   const camTargets = useRef({ position: new THREE.Vector3(), lookAt: new THREE.Vector3() });
@@ -194,15 +198,7 @@ export function PlayerController({
       velocityRef.current.set(0,0); velYRef.current=0; jumpPressed.current=false; isDancingRef.current=false;
       if (viewMode!=='third-person' && viewMode!=='first-person') onViewModeChange('third-person');
     };
-    interactRequest.current=interact;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || (e.target instanceof HTMLElement &&
-        (e.target.isContentEditable || e.target.matches('input, textarea, select')))) return;
-      const code = e.code;
-      if (code === 'Space' && e.target instanceof HTMLButtonElement) return;
-      if (code === 'Space' || code.startsWith('Arrow')) e.preventDefault();
-      if (e.repeat) return;
-      keysRef.current[code] = true;
+    const command = (code: string) => {
       if (/^(Key[WASDF]|Arrow(Up|Down|Left|Right)|Space|Digit[1-4])$/.test(code)) releasePet(pet);
       if (sittingRef.current && /^(Key[WASD]|Arrow(Up|Down|Left|Right)|Space)$/.test(code)) sittingRef.current.leaving=true;
 
@@ -244,22 +240,33 @@ export function PlayerController({
           code
         )
       ) {
-        if (e.target instanceof HTMLButtonElement) dom.focus({ preventScroll: true });
         if (viewMode !== 'third-person' && viewMode !== 'first-person') {
           onViewModeChange('third-person');
         }
       }
+    };
+    input.command=command;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey ||
+        (e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.matches('input, textarea, select')))) return;
+      if (e.code === 'Space' && e.target instanceof HTMLButtonElement) return;
+      if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+      if (e.repeat) return;
+      keysRef.current[e.code] = true;
+      if (/^(Key[WASD]|Arrow)/.test(e.code) && e.target instanceof HTMLButtonElement) dom.focus({preventScroll:true});
+      command(e.code);
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       keysRef.current[e.code] = false;
     };
 
+    const pointers = new Map<number, {x:number; y:number}>();
     const handlePointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || pointers.size >= 2) return;
       dom.focus({ preventScroll: true });
-      isDraggingRef.current = true;
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      dom.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
     };
 
     const handlePointerMove = (e: PointerEvent) => {
@@ -272,10 +279,18 @@ export function PlayerController({
         );
         return;
       }
-      if (!isDraggingRef.current) return;
-      const dx = e.clientX - lastPointerRef.current.x;
-      const dy = e.clientY - lastPointerRef.current.y;
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      const last=pointers.get(e.pointerId);
+      if (!last) return;
+      const dx=e.clientX-last.x, dy=e.clientY-last.y;
+      last.x=e.clientX; last.y=e.clientY;
+      if(pointers.size===2) {
+        for(const other of pointers.values()) if(other!==last) {
+          const x=last.x-other.x, y=last.y-other.y;
+          const before=Math.hypot(x-dx,y-dy), after=Math.hypot(x,y);
+          if(before>4 && after>4) camDistRef.current=THREE.MathUtils.clamp(camDistRef.current*before/after,1.8,6.5);
+        }
+        return;
+      }
 
       camYawRef.current -= dx * 0.0055;
       camPitchRef.current = THREE.MathUtils.clamp(
@@ -285,16 +300,15 @@ export function PlayerController({
       );
     };
 
-    const handlePointerUp = () => {
-      isDraggingRef.current = false;
-    };
+    const handlePointerUp = (e: PointerEvent) => { pointers.delete(e.pointerId); };
 
     const clearInput = () => {
       releasePet(pet);
       keysRef.current = {};
       velocityRef.current.set(0, 0);
       jumpPressed.current = false;
-      handlePointerUp();
+      pointers.clear();
+      input.x=input.forward=0;
     };
     const onVisibilityChange = () => { if (document.hidden) clearInput(); };
 
@@ -307,24 +321,26 @@ export function PlayerController({
     window.addEventListener('blur', clearInput);
     document.addEventListener('visibilitychange', onVisibilityChange);
     dom.addEventListener('pointerdown', handlePointerDown);
+    dom.addEventListener('lostpointercapture', handlePointerUp);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);
     dom.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
-      interactRequest.current=null;
+      input.command=undefined;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', clearInput);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       dom.removeEventListener('pointerdown', handlePointerDown);
+      dom.removeEventListener('lostpointercapture', handlePointerUp);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
       dom.removeEventListener('wheel', handleWheel);
     };
-  }, [gl, scene, viewMode, onViewModeChange, interactRequest, pet, spare]);
+  }, [gl, scene, viewMode, onViewModeChange, input, pet, spare]);
 
   useFrame(({ viewport, setDpr }, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05);
@@ -358,6 +374,11 @@ export function PlayerController({
     const jump = jumpPressed.current;
     jumpPressed.current = false;
 
+    if (input.x || input.forward) {
+      releasePet(pet);
+      if (sittingRef.current) sittingRef.current.leaving=true;
+      if (viewMode!=='first-person' && viewMode!=='third-person') onViewModeChange('third-person');
+    }
     if (rideRef.current) {
       rideRef.current.time += dt;
       const ride = sampleRide(rideRef.current);
@@ -386,10 +407,10 @@ export function PlayerController({
     // === 3. FREE WALKING / RUNNING / JUMPING / STAIRS ===
     else {
       const forwardInput =
-        (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+        (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + input.forward;
       const rightInput =
-        (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-      const sprinting = Boolean(keys.ShiftLeft || keys.ShiftRight);
+        (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + input.x;
+      const sprinting = Boolean(keys.ShiftLeft || keys.ShiftRight || Math.hypot(input.x,input.forward)>0.88);
 
       // Forward direction derived from camera yaw on XZ plane
       const camForwardX = Math.sin(camYawRef.current);
@@ -582,18 +603,18 @@ export function PlayerController({
     let actionable=false;
     if (sitting) {
       actionable=!sitting.leaving;
-      nextPrompt=actionable ? `Duduk di ${sitting.site.label} · [E] atau WASD untuk bangun` : null;
+      nextPrompt=actionable ? `Bangun dari ${sitting.site.label}` : null;
     } else if (rideRef.current) {
       nextPrompt = 'Meluncur turun di perosotan kayu...';
     } else if (pet.phase!=='off') {
       actionable=pet.phase!=='release';
-      nextPrompt=actionable ? 'Mengelus kucing · [E] Selesai' : null;
+      nextPrompt=actionable ? 'Selesai mengelus' : null;
     } else if (groundedRef.current) {
       const choice=nearbyAction(pos,catGroupRef.current,spare);
       actionable=!!choice;
-      if(choice==='cat') nextPrompt='Tekan [E] untuk mengelus kucing';
-      else if(choice==='slide') nextPrompt='Tekan [E] untuk meluncur di perosotan';
-      else if(choice) nextPrompt=`Tekan [E] untuk duduk di ${choice.label}`;
+      if(choice==='cat') nextPrompt='Elus kucing';
+      else if(choice==='slide') nextPrompt='Naik perosotan';
+      else if(choice) nextPrompt=`Duduk di ${choice.label}`;
     }
 
     const locationLabel = getLocationLabel(pos.x, pos.y, pos.z);
