@@ -2,12 +2,13 @@ import { useRef, useState } from 'react';
 import { CAMERA_PRESETS } from '../scene/layout';
 import type { PlayerInput, ViewMode } from '../scene/PlayerController';
 import { TouchPad } from './TouchPad';
+import type { DaylightMode } from '../daylight';
 
 interface HUDProps {
   input: PlayerInput;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  isDay: boolean; onToggleDay: () => void;
+  isDay: boolean; daylightMode: DaylightMode; onDaylightModeChange: (mode: DaylightMode) => void;
   ledOn: boolean; onToggleLed: () => void;
   spotlightsOn: boolean; onToggleSpotlights: () => void;
   bloomEnabled: boolean; onToggleBloom: () => void;
@@ -27,7 +28,7 @@ export function HUD(p: HUDProps) {
   const panel = useRef<HTMLDialogElement>(null);
   const [open,setOpen] = useState(false);
   const lighting: [string,boolean,() => void][] = [
-    ['Mode siang',p.isDay,p.onToggleDay], ['LED hangat',p.ledOn,p.onToggleLed],
+    ['LED hangat',p.ledOn,p.onToggleLed],
     ['Spotlight',p.spotlightsOn,p.onToggleSpotlights], ['Bloom',p.bloomEnabled,p.onToggleBloom],
     ['Layar LED',p.screenOn,p.onToggleScreen],
   ];
@@ -68,7 +69,13 @@ export function HUD(p: HUDProps) {
           {cameras.map(([id,label]) => <button key={id} aria-pressed={p.viewMode===id}
             onClick={() => { p.onViewModeChange(id); panel.current?.close(); }}>{label}</button>)}
         </div></section>
-        <section><h2><small>03</small> Suasana</h2><div className="guide-choices lighting">
+        <section><h2><small>03</small> Suasana</h2>
+          <p>Saat ini: {p.isDay ? 'siang' : 'malam'}. Mode otomatis mengikuti jam perangkatmu.</p>
+          <div className="guide-choices" role="group" aria-label="Mode waktu">
+            {([['auto','Otomatis'],['day','Siang'],['night','Malam']] as const).map(([mode,label]) =>
+              <button key={mode} aria-pressed={mode===p.daylightMode} onClick={() => p.onDaylightModeChange(mode)}>{label}</button>)}
+          </div>
+          <div className="guide-choices lighting">
           {lighting.map(([label,active,toggle]) => <button key={label} aria-pressed={active} onClick={toggle}>{label}</button>)}
         </div></section>
       </div>

@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ArchitecturalShell } from './scene/ArchitecturalShell';
@@ -8,10 +8,30 @@ import { PlayerController, PlayerHudCallbackState, ViewMode, type PlayerInput } 
 import { SceneLighting } from './scene/SceneLighting';
 import { HUD } from './components/HUD';
 import { LoadingScreen } from './components/LoadingScreen';
+import { isLocalDay, type DaylightMode } from './daylight';
 
 export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('third-person');
-  const [isDay, setIsDay] = useState(false);
+  const [daylightMode, setDaylightMode] = useState<DaylightMode>('auto');
+  const [localDay, setLocalDay] = useState(isLocalDay);
+  const isDay = daylightMode === 'auto' ? localDay : daylightMode === 'day';
+  useEffect(() => {
+    let timer: number;
+    function sync() {
+      window.clearTimeout(timer);
+      const now = new Date();
+      setLocalDay(isLocalDay(now));
+      timer = window.setTimeout(sync, 60000 - now.getTime() % 60000);
+    }
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('pageshow', sync);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('pageshow', sync);
+    };
+  }, []);
   const [ledOn, setLedOn] = useState(true);
   const [spotlightsOn, setSpotlightsOn] = useState(true);
   const [bloomEnabled, setBloomEnabled] = useState(true);
@@ -81,7 +101,8 @@ export function App() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         isDay={isDay}
-        onToggleDay={() => setIsDay((d) => !d)}
+        daylightMode={daylightMode}
+        onDaylightModeChange={setDaylightMode}
         ledOn={ledOn}
         onToggleLed={() => setLedOn((v) => !v)}
         spotlightsOn={spotlightsOn}
