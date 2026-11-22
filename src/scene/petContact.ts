@@ -2,13 +2,52 @@ import { Bone, MathUtils, Matrix4, Object3D, Quaternion, SkinnedMesh, Vector3 } 
 import { makeLegSolver } from './legIK.ts';
 import type { PetInteraction } from './petInteraction.ts';
 
+// The two contact meshes have immutable bind positions (no position morphs).
+// Cache joint/weight lookups and compute world skinning matrices once per pose,
+// rather than multiplying the same matrices for every vertex influence.
+function makeSkinSampler(mesh: SkinnedMesh, source: number[]) {
+  const { position, skinIndex, skinWeight }=mesh.geometry.attributes;
+  const { bones, boneInverses }=mesh.skeleton;
+  const base=source.map(i=>new Vector3().fromBufferAttribute(position,i).applyMatrix4(mesh.bindMatrix));
+  const offsets=new Uint32Array(source.length+1), joints:number[]=[], weights:number[]=[];
+  const matrices=bones.map(()=>new Matrix4()), used=new Set<number>(), toWorld=new Matrix4();
+  source.forEach((id,i)=>{
+    offsets[i]=joints.length;
+    for(let k=0;k<4;k++) {
+      const w=skinWeight.getComponent(id,k);
+      if(!w) continue;
+      const j=skinIndex.getComponent(id,k);
+      used.add(j); joints.push(j); weights.push(w);
+    }
+  });
+  offsets[source.length]=joints.length;
+  return {
+    update() {
+      toWorld.multiplyMatrices(mesh.matrixWorld,mesh.bindMatrixInverse);
+      for(const j of used) matrices[j].multiplyMatrices(bones[j].matrixWorld,boneInverses[j]);
+    },
+    read(i: number,out: Vector3) {
+      const {x,y,z}=base[i];
+      let ox=0, oy=0, oz=0;
+      for(let k=offsets[i];k<offsets[i+1];k++) {
+        const m=matrices[joints[k]].elements, w=weights[k];
+        ox+=w*(m[0]*x+m[4]*y+m[8]*z+m[12]);
+        oy+=w*(m[1]*x+m[5]*y+m[9]*z+m[13]);
+        oz+=w*(m[2]*x+m[6]*y+m[10]*z+m[14]);
+      }
+      return out.set(ox,oy,oz).applyMatrix4(toWorld);
+    }
+  };
+}
+
 // Sample the visible dorsal skin, not a bone centre. The same samples follow a curled, breathing cat.
 export function createFurContact(model: Object3D) {
   const mesh=model.getObjectByName('Shorthaired_calico_in_knit_vest') as SkinnedMesh;
   const a=mesh.geometry.attributes.position, v=new Vector3(), tmp=new Vector3();
   // Spatial bins accelerate vertical intersections, not a dilated height map: a
   // fingertip beside the ear must not be lifted to the height of the ear tip.
-  const gridSize=32, cell=0.022, bins=Array.from({length:gridSize**2},()=>[] as number[]);
+  const gridSize=80, cell=0.009, bins=Array.from({length:gridSize**2},()=>[] as number[]);
+  const counts=new Uint32Array(bins.length);
   const chosen=new Map<string,number>(), joints=mesh.geometry.attributes.skinIndex;
   const source:number[]=[], mapped=new Int32Array(a.count), tris:number[]=[];
   for (let i=0;i<a.count;i++) {
@@ -23,11 +62,13 @@ export function createFurContact(model: Object3D) {
     if(x>=0 && y>=0 && z>=0 && x!==y && y!==z && z!==x) tris.push(x,y,z);
   }
   const vertices=source.map(()=>new Vector3()), projected=new Float64Array(tris.length*3);
+  const sampler=makeSkinSampler(mesh,source);
   let left=0, back=0;
   function updateSurface(center: Vector3) {
     left=center.x-gridSize*cell/2; back=center.z-gridSize*cell/2;
-    for(const bin of bins) bin.length=0;
-    for(let i=0;i<source.length;i++) mesh.getVertexPosition(source[i],vertices[i]).applyMatrix4(mesh.matrixWorld);
+    counts.fill(0);
+    sampler.update();
+    for(let i=0;i<source.length;i++) sampler.read(i,vertices[i]);
     for(let i=0;i<tris.length;i+=3) {
       const A=vertices[tris[i]], B=vertices[tris[i+1]], C=vertices[tris[i+2]], k=i*3;
       const u=B.x-A.x, v=B.z-A.z, s=C.x-A.x, t=C.z-A.z, det=u*t-v*s;
@@ -39,14 +80,19 @@ export function createFurContact(model: Object3D) {
       const maxX=Math.min(gridSize-1,Math.floor((Math.max(A.x,B.x,C.x)-left)/cell));
       const minZ=Math.max(0,Math.floor((Math.min(A.z,B.z,C.z)-back)/cell));
       const maxZ=Math.min(gridSize-1,Math.floor((Math.max(A.z,B.z,C.z)-back)/cell));
-      for(let z=minZ;z<=maxZ;z++) for(let x=minX;x<=maxX;x++) bins[z*gridSize+x].push(k);
+      for(let z=minZ;z<=maxZ;z++) for(let x=minX;x<=maxX;x++) {
+        const bin=z*gridSize+x;
+        bins[bin][counts[bin]++]=k;
+      }
     }
   }
   function heightAt(x: number,z: number) {
     const ix=Math.floor((x-left)/cell), iz=Math.floor((z-back)/cell);
     if (ix<0 || iz<0 || ix>=gridSize || iz>=gridSize) return -Infinity;
     let h=-Infinity;
-    for(const k of bins[iz*gridSize+ix]) {
+    const bin=iz*gridSize+ix, entries=bins[bin];
+    for(let i=0;i<counts[bin];i++) {
+      const k=entries[i];
       const dx=x-projected[k], dz=z-projected[k+1];
       const b=dx*projected[k+3]+dz*projected[k+4], c=dx*projected[k+5]+dz*projected[k+6];
       if(b>=0 && c>=0 && b+c<=1) h=Math.max(h,projected[k+2]+b*projected[k+7]+c*projected[k+8]);
@@ -116,6 +162,7 @@ export function createPetPose(model: Object3D) {
     const score=at.distanceToSquared(expected);
     if (score<nearest) { nearest=score; pad.copy(at); }
   }
+  const hand=makeSkinSampler(skin,handSamples);
   let applied=false;
   function restore() {
     if (!applied) return;
@@ -170,9 +217,10 @@ export function createPetPose(model: Object3D) {
         for (let pass=0;pass<3;pass++) {
           skin.updateWorldMatrix(true,false);
           arm.a.updateWorldMatrix(true,true);
+          hand.update();
           let lift=0;
-          for (const j of handSamples) {
-            skin.getVertexPosition(j,at).applyMatrix4(skin.matrixWorld);
+          for (let j=0;j<handSamples.length;j++) {
+            hand.read(j,at);
             lift=Math.max(lift,pet.surface(at.x,at.z)+0.004-at.y);
           }
           if (lift<0.0005) break;

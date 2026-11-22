@@ -159,6 +159,8 @@ export function PlayerController({
   const lastHudLocationRef = useRef<string>('');
   const fpsFramesRef = useRef(0);
   const fpsAccumRef = useRef(0);
+  const slowSamplesRef = useRef(0);
+  const petDprRef = useRef<number | null>(null);
 
   // Keyboard & mouse listeners
   useEffect(() => {
@@ -324,7 +326,7 @@ export function PlayerController({
     };
   }, [gl, scene, viewMode, onViewModeChange, interactRequest, pet, spare]);
 
-  useFrame((_, rawDelta) => {
+  useFrame(({ viewport, setDpr }, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05);
 
     // Sample FPS every 0.5s without spamming React state
@@ -333,8 +335,18 @@ export function PlayerController({
     if (fpsAccumRef.current >= 0.5) {
       const fps = Math.round(fpsFramesRef.current / fpsAccumRef.current);
       onFpsSample(fps);
+      slowSamplesRef.current = !document.hidden && fps < 28 ? slowSamplesRef.current + 1 : 0;
       fpsFramesRef.current = 0;
       fpsAccumRef.current = 0;
+    }
+    // Scale only the 3D close-up, not the HUD. Latch until release so render
+    // targets aren't repeatedly reallocated near the frame-rate threshold.
+    if (pet.phase !== 'off' && slowSamplesRef.current >= 2 && petDprRef.current === null) {
+      petDprRef.current = viewport.dpr;
+      setDpr(Math.min(viewport.dpr, 0.75));
+    } else if (pet.phase === 'off' && petDprRef.current !== null) {
+      setDpr(petDprRef.current);
+      petDprRef.current = null;
     }
 
     const keys = keysRef.current;

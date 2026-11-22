@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ArchitecturalShell } from './scene/ArchitecturalShell';
@@ -31,8 +31,8 @@ export function App() {
     setFps(sampledFps);
   }, []);
 
-  return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+  // HUD samples change several times during a stroke, not the auditorium.
+  const scene = useMemo(() => (
       <Canvas
         shadows="percentage"
         dpr={[1, 1.5]}
@@ -63,7 +63,11 @@ export function App() {
           interactRequest={interactRequest}
         />
       </Canvas>
+  ), [viewMode, isDay, ledOn, spotlightsOn, bloomEnabled, screenOn, handleHudUpdate, handleFpsSample]);
 
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+      {scene}
       <HUD
         viewMode={viewMode}
         onViewModeChange={setViewMode}

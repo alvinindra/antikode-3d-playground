@@ -12,6 +12,20 @@ import type { PetInteraction } from './petInteraction';
 const URL = `${import.meta.env.BASE_URL}models/studio-cat.glb?v=6b036541`;
 type GroupRef = RefObject<THREE.Group | null>;
 
+// The coat bake emits 24 indices per two-sided lock. Keep one whole lock
+// out of four across the coat, sharing the same skinning and vertex buffers.
+function sparseCoat(full: THREE.BufferGeometry) {
+  const index=full.getIndex()!;
+  const indices:number[]=[];
+  for(let i=0;i<index.count;i+=4*24) {
+    for(let k=0;k<24;k++) indices.push(index.getX(i+k));
+  }
+  const sparse=new THREE.BufferGeometry();
+  for(const [name,attr] of Object.entries(full.attributes)) sparse.setAttribute(name,attr);
+  sparse.setIndex(indices);
+  return sparse;
+}
+
 export function StudioCat({ body, player, pet }: { body: GroupRef; player: GroupRef; pet: PetInteraction }) {
   const { scene, animations } = useGLTF(URL);
   const cat = useMemo(() => {
@@ -31,9 +45,11 @@ export function StudioCat({ body, player, pet }: { body: GroupRef; player: Group
     const brain = createCatRoutine({ groom: actions.groom.getClip().duration, settle: actions.settle.getClip().duration,
       wake: actions.wake.getClip().duration });
     const stride = model.getObjectByName('Studio_cat_rig')!.userData.strideMeters * CAT_SCALE;
+    const coat=model.getObjectByName('Combed_guard_hairs') as THREE.SkinnedMesh;
     const head = model.getObjectByName('head')!;
     const eyes = ['Eyelids','Sage_eye_L','Sage_eye_R'].map(n=>(model.getObjectByName(n) as THREE.Mesh).morphTargetInfluences!);
     return { model, mixer, actions: Object.entries(actions), brain, stride, phase: 0, clock: 0,
+      coat, fullCoat:coat.geometry, sparseCoat:sparseCoat(coat.geometry), slowTime:0,
       fur: createFurContact(model), head, headQ: new THREE.Quaternion(), eyes, blink: [0,0,0], leaned: false };
   }, [scene, animations]);
 
@@ -41,13 +57,25 @@ export function StudioCat({ body, player, pet }: { body: GroupRef; player: Group
     for (const [name,a] of cat.actions) {
       a.reset().play(); a.paused=true; a.weight=name==='idle'?1:0;
     }
-    return () => { cat.mixer.stopAllAction(); };
+    return () => {
+      cat.mixer.stopAllAction();
+      cat.coat.geometry=cat.fullCoat;
+      cat.sparseCoat.dispose();
+    };
   }, [cat]);
 
   useFrame((_, delta) => {
     if (!body.current) return;
     const dt=Math.min(0.05,delta);
     const held = pet.phase!=='off';
+    // Ignore single-frame hitches; once reduced, keep the coat stable for this interaction.
+    if (held) {
+      cat.slowTime=delta>1/30 ? cat.slowTime+dt : 0;
+      if(cat.slowTime>=0.15) cat.coat.geometry=cat.sparseCoat;
+    } else {
+      cat.slowTime=0;
+      cat.coat.geometry=cat.fullCoat;
+    }
     cat.brain.update(dt,player.current?.position ?? null,held);
     const s=cat.brain.state, root=body.current;
     root.position.set(s.x,ROOM.turfY,s.z); root.rotation.y=s.yaw;
