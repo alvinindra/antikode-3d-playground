@@ -7,6 +7,7 @@ import {
   getRoofY,
   getWalkableFloorY,
   INTERACTION_ZONES,
+  nookDuck,
   ROOM,
   stairInfluence,
   travelBaseY,
@@ -16,7 +17,7 @@ import { beginSlide, sampleRide } from './slideRide';
 import { StudioCat } from './StudioCat';
 import { blocksCatFootprint } from './catRoutine';
 import { advancePet, beginPet, createPetInteraction, petSpot, releasePet } from './petInteraction';
-import { advanceSeat, nearbySeat, takeSeat, type SeatUse } from './seating';
+import { advanceSeat, frontExit, nearbySeat, takeSeat, type SeatUse } from './seating';
 import { buildRoomContacts, outsideWalkableVolume } from './roomContacts';
 
 export type ViewMode = 'third-person' | 'first-person' | (typeof CAMERA_PRESETS)[number]['id'];
@@ -115,6 +116,7 @@ export function PlayerController({
     distance: 0,
     terrain: 0,
     seat: 0,
+    pushUp: 0,
     visible: true,
     sitting: null,
   });
@@ -165,7 +167,10 @@ export function PlayerController({
       } else if (choice==='slide') {
         rideRef.current=beginSlide(p.x,p.y,p.z,facingYawRef.current);
       } else {
-        const sitting=takeSeat(choice,p,facingYawRef.current);
+        const exit=frontExit(choice,point=>!outsideWalkableVolume(point.x,point.y,point.z) &&
+          !contacts.current?.blocked(point.x,point.y,point.z) && !!contacts.current?.clearApproach(point,choice,choice.id));
+        if (!exit) return;
+        const sitting=takeSeat(choice,p,facingYawRef.current,exit);
         sitting.entryY=playerGroupRef.current?.position.y ?? p.y;
         if(choice.kind==='bag') scene.getObjectByName(choice.id)?.traverse(n=>{
           if(n instanceof THREE.Mesh && n.morphTargetInfluences?.length) sitting.morphs.push(n.morphTargetInfluences);
@@ -351,6 +356,7 @@ export function PlayerController({
     let distance = 0;
     let tilt = 0;
     let seat = 0;
+    let pushUp = 0;
     const jump = jumpPressed.current;
     jumpPressed.current = false;
 
@@ -366,6 +372,7 @@ export function PlayerController({
       facingYawRef.current = ride.yaw;
       tilt = ride.pitch;
       seat = ride.seat;
+      pushUp = ride.done ? 0 : ride.stand;
       pose = ride.done ? 'idle' : 'slide';
       if (ride.done) {
         rideRef.current = null;
@@ -376,8 +383,12 @@ export function PlayerController({
     else if (sittingRef.current) {
       pose = 'lounge';
       const use=sittingRef.current;
+      const px=pos.x, pz=pos.z;
       facingYawRef.current=advanceSeat(use,pos,dt);
-      if(use.leaving && use.t===0) { sittingRef.current=null; pose='idle'; }
+      tilt=use.lean;
+      const step=Math.hypot(pos.x-px,pos.z-pz);
+      if((use.rise>0 ? use.rise>0.74 : use.weight<0.55) && step>0.04*dt) { pose='walk'; distance=step; }
+      if(use.rise===1) { sittingRef.current=null; pose='idle'; distance=0; }
     }
     else if (pet.phase!=='off') {
       facingYawRef.current=advancePet(pet,pos,facingYawRef.current,dt);
@@ -492,8 +503,12 @@ export function PlayerController({
 
     const sitting=sittingRef.current;
     const terrain = groundedRef.current && !rideRef.current && !sitting ? stairInfluence(pos.x, pos.z, pos.y) : 0;
-    const bodyY = sitting ? pos.y+(sitting.entryY-sitting.from.y)*(1-sitting.weight)
-      : groundedRef.current && !rideRef.current ? travelBaseY(pos.x, pos.z, pos.y, terrain) : pos.y;
+    let bodyY=pos.y;
+    if (sitting && !sitting.rise) bodyY+=(sitting.entryY-sitting.from.y)*(1-sitting.weight);
+    else if (groundedRef.current && !rideRef.current) {
+      const standingY=travelBaseY(pos.x,pos.z,pos.y,sitting ? stairInfluence(pos.x,pos.z,pos.y) : terrain);
+      bodyY=sitting ? THREE.MathUtils.lerp(pos.y,standingY,THREE.MathUtils.smoothstep(sitting.rise,0.8,1)) : standingY;
+    }
     if (playerGroupRef.current) {
       playerGroupRef.current.position.set(pos.x, bodyY, pos.z);
       playerGroupRef.current.rotation.set(tilt, facingYawRef.current, 0, 'YXZ');
@@ -506,6 +521,7 @@ export function PlayerController({
     animRef.current.distance = pose === 'walk' || pose === 'run' ? distance : 0;
     animRef.current.terrain = terrain;
     animRef.current.seat = seat;
+    animRef.current.pushUp = pushUp;
     animRef.current.visible = showCharacter;
     animRef.current.sitting = sitting;
 
@@ -544,7 +560,7 @@ export function PlayerController({
       desiredCamPos.y = THREE.MathUtils.clamp(desiredCamPos.y, cameraFloor, roofLimit);
       desiredFov = 58;
     } else if (viewMode === 'first-person') {
-      const eyeY = bodyY + THREE.MathUtils.lerp(1.63, 0.82, seated);
+      const eyeY = bodyY + THREE.MathUtils.lerp(1.63-0.50*nookDuck(pos.x,pos.y,pos.z), 0.82, seated);
       desiredCamPos.set(pos.x, eyeY, pos.z);
       desiredLookAt.set(
         pos.x + Math.sin(camYawRef.current) * Math.cos(camPitchRef.current),

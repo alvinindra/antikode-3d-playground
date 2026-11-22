@@ -1,6 +1,6 @@
 import { Box3, Group, InstancedMesh, Matrix4, Mesh, Object3D, Triangle, Vector3 } from 'three';
 import { OBB } from 'three/addons/math/OBB.js';
-import { getTierTopY, SOLID_OBSTACLES } from './layout.ts';
+import { getTierTopY, nookDuck, SOLID_OBSTACLES } from './layout.ts';
 
 // Standing envelope includes the shoulders and shoes, not just the pelvis.
 export const BODY_RADIUS = 0.38, BODY_HEIGHT = 1.80;
@@ -68,8 +68,8 @@ export function buildRoomContacts(root: Group) {
   }
   visit(root);
   const body = new Box3();
-  function blocked(x: number, y: number, z: number, ignoreSeat?: string, height = BODY_HEIGHT,
-    halfX = BODY_RADIUS, halfZ = BODY_RADIUS) {
+  function blocked(x: number, y: number, z: number, ignoreSeat?: string, height = BODY_HEIGHT-0.50*nookDuck(x,y,z),
+    halfX = BODY_RADIUS-0.075*nookDuck(x,y,z), halfZ = halfX) {
     body.min.set(x - halfX, y + SKIN, z - halfZ);
     body.max.set(x + halfX, y + height, z + halfZ);
     // Statics are in every cell they touch. No scene traversal or allocations per probe.
@@ -112,8 +112,10 @@ export function buildRoomContacts(root: Group) {
     const steps = Math.max(1, Math.ceil(Math.hypot(dx,dy,dz)/0.09));
     for (let i=1; i<=steps; i++) {
       const t = i/steps;
-      const tuck = seat ? t : 0, radius = BODY_RADIUS - 0.10*tuck;
-      if (blocked(from.x+dx*t, from.y+dy*t, from.z+dz*t, seat, BODY_HEIGHT-0.86*tuck, radius, radius)) return false;
+      const tuck = seat ? t : 0;
+      const x=from.x+dx*t,y=from.y+dy*t,z=from.z+dz*t;
+      const duck=nookDuck(x,y,z),radius=BODY_RADIUS-Math.max(0.10*tuck,0.075*duck);
+      if (blocked(x,y,z,seat,BODY_HEIGHT-Math.max(0.86*tuck,0.50*duck),radius,radius)) return false;
     }
     return true;
   }

@@ -55,6 +55,10 @@ export const FOYER = {
 } as const;
 
 export const NOOK_PADS = { x: ROOM.nookWallX + 0.78, z: [4.06, 4.89], width: 1.42, depth: 0.81, top: 0.34 };
+export function nookDuck(x: number,y: number,z: number) {
+  if(y>=1.6 || x>ROOM.nookWallX+ROOM.nookDepth || z<ROOM.nookDividerZ || z>ROOM.nookEndZ) return 0;
+  return THREE.MathUtils.smoothstep(x,ROOM.nookWallX-0.84,ROOM.nookWallX-0.48);
+}
 export const GALLERY_CHAIRS = [
   { x: -10.07, z: 1.96, yaw: 2.04, top: 0.39 },
   { x: -9.36, z: 3.00, yaw: 2.37, top: 0.39 },
@@ -261,7 +265,10 @@ export function getWalkableFloorY(x: number, z: number, currentY: number): numbe
 
   if (insideNookXZ && currentY < 1.6) {
     // Low mattress / oak platform inside the nook
-    if (Math.abs(x-NOOK_PADS.x) <= NOOK_PADS.width/2 && NOOK_PADS.z.some(c => Math.abs(z-c)<=NOOK_PADS.depth/2)) return NOOK_PADS.top;
+    // The two-centimetre seam cannot support a visitor 18 cm lower than
+    // either sole. Use the continuous support surface of the paired pads.
+    if (Math.abs(x-NOOK_PADS.x) <= NOOK_PADS.width/2 &&
+        z>=NOOK_PADS.z[0]-NOOK_PADS.depth/2 && z<=NOOK_PADS.z[1]+NOOK_PADS.depth/2) return NOOK_PADS.top;
     return Math.abs(z-3.4)<=0.24 ? 0.29 : 0.16;
   }
 

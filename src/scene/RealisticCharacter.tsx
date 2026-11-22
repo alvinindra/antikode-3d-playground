@@ -3,13 +3,13 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { getWalkableFloorY, ROOM } from './layout';
+import { getWalkableFloorY, nookDuck, ROOM } from './layout';
 import { getSceneMaterials } from './materials';
 import { createTreadFooting } from './treadFooting';
 import { createSeatContact } from './surfaceContact';
 import { createPetPose } from './petContact';
 import type { PetInteraction } from './petInteraction';
-import { createSeatedPose } from './seatedPose';
+import { createNookCrouch, createSeatedPose } from './seatedPose';
 import type { SeatUse } from './seating';
 
 export type CharacterPose = 'idle' | 'walk' | 'run' | 'jump' | 'slide' | 'lounge' | 'dance';
@@ -20,6 +20,7 @@ export interface CharacterAnimState {
   distance: number;
   terrain: number;
   seat: number;
+  pushUp: number;
   visible: boolean;
   sitting: SeatUse | null;
 }
@@ -29,7 +30,7 @@ interface RealisticCharacterProps {
   pet: PetInteraction;
 }
 
-const MODEL_URL = `${import.meta.env.BASE_URL}models/studio-visitor.glb?v=ca5859b8`;
+const MODEL_URL = `${import.meta.env.BASE_URL}models/studio-visitor.glb?v=d277c6db`;
 const SCALE = 0.95;
 
 export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
@@ -53,6 +54,7 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
   const fitSeat = useMemo(() => createSeatContact(model), [model]);
   const petPose = useMemo(() => createPetPose(model), [model]);
   const seatPose = useMemo(() => createSeatedPose(model), [model]);
+  const crouch = useMemo(() => createNookCrouch(model), [model]);
   const firstPersonPet = useRef(false);
   const playback = useRef<{
     mixer: THREE.AnimationMixer;
@@ -85,7 +87,7 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
   useFrame((_, rawDelta) => {
     const p = playback.current;
     if (!p) return;
-    const { pose, visible, distance, terrain, seat, sitting } = animRef.current;
+    const { pose, visible, distance, terrain, seat, sitting, pushUp } = animRef.current;
     const ownBody = !visible && pet.weight>0;
     model.visible = visible || ownBody;
     if (ownBody!==firstPersonPet.current) {
@@ -139,6 +141,7 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
     }
     p.walk.time = p.phase * p.walk.getClip().duration;
     p.run.time = p.phase * p.run.getClip().duration;
+    crouch.restore();
     petPose.restore();
     seatPose.restore();
     footing.restore();
@@ -147,7 +150,12 @@ export function RealisticCharacter({ animRef, pet }: RealisticCharacterProps) {
     footing.fit(player, onFoot ? terrain : 0, p.phase, p.walk.weight + p.run.weight, dt, onFoot ? 1 - runMix : -1);
     if (visible && pose === 'slide') fitSeat(player);
     if (visible && sitting) seatPose.fit(player,sitting);
+    if (visible && pushUp>0) {
+      seatPose.push(player,pushUp);
+      fitSeat(player);
+    }
     if (model.visible && pet.weight>0) petPose.fit(player,pet);
+    if(visible) crouch.fit(player,nookDuck(player.position.x,player.position.y,player.position.z)*(1-(sitting?.weight??0)));
     if (seatContact.current) seatContact.current.visible = visible && seat > 0.995;
     feet.forEach((foot, i) => {
       const patch = contacts.current[i];

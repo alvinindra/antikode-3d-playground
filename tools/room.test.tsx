@@ -3,7 +3,7 @@ import { act, createRoot, extend } from '@react-three/fiber/dist/react-three-fib
 import * as THREE from 'three';
 import { buildRoomContacts, BODY_HEIGHT, BODY_RADIUS, outsideWalkableVolume } from '../src/scene/roomContacts';
 import { FOYER, GALLERY_CHAIRS, getWalkableFloorY, NOOK_PADS, ROOM, TURF_BEANBAGS, WALK_STEP } from '../src/scene/layout';
-import { nearbySeat } from '../src/scene/seating';
+import { frontExit, nearbySeat } from '../src/scene/seating';
 import { beginSlide, sampleRide } from '../src/scene/slideRide';
 
 // Mount the production furniture and architecture; only pixels and canvas text are stubbed.
@@ -116,6 +116,21 @@ test('a diagonal push slides along the glass without crossing it, and the slide 
   }
 });
 
+test('walk through the opening onto each mattress and regain control on the same pad',()=>{
+  for(const z of NOOK_PADS.z) {
+    let y=0;
+    for(let x=ROOM.nookWallX-0.95;x<NOOK_PADS.x-0.32;x+=0.045) {
+      const next=getWalkableFloorY(x,z,y);
+      expect(outsideWalkableVolume(x,next,z) || room.blocked(x,next,z),`opening at ${x},${z}`).toBe(false);
+      expect(room.vertical(x,z,y,next)).toBe(next);
+      y=next;
+    }
+    const p=new THREE.Vector3(NOOK_PADS.x-0.32,y,z),s=nearbySeat(p)!;
+    expect(room.clearApproach(p,s,s.id)).toBe(true);
+    const exit=frontExit(s,q=>!outsideWalkableVolume(q.x,q.y,q.z) && !room.blocked(q.x,q.y,q.z) && room.clearApproach(q,s,s.id));
+    expect(exit?.z).toBe(z); expect(exit?.y).toBe(NOOK_PADS.top);
+  }
+});
 test('each interactive chair, beanbag and mattress retains a clear approach', () => {
   const sites = [
     ...GALLERY_CHAIRS.map((p,i) => ({ ...p, id:`gallery-chair-${i}`})),
@@ -127,7 +142,8 @@ test('each interactive chair, beanbag and mattress retains a clear approach', ()
     for (let r=0.65; r<1.83 && !found; r+=0.10) for (let i=0;i<64 && !found;i++) {
       const x=s.x+r*Math.cos(i*Math.PI/32), z=s.z+r*Math.sin(i*Math.PI/32);
       const p=new THREE.Vector3(x,getWalkableFloorY(x,z,0),z), site=nearbySeat(p);
-      found = site?.id===s.id && !room.blocked(x,p.y,z) && room.clearApproach(p,site,s.id);
+      found = site?.id===s.id && !room.blocked(x,p.y,z) && room.clearApproach(p,site,s.id) &&
+        !!frontExit(site,q=>!outsideWalkableVolume(q.x,q.y,q.z) && !room.blocked(q.x,q.y,q.z) && room.clearApproach(q,site,s.id));
     }
     expect(found, s.id).toBe(true);
   }

@@ -145,6 +145,7 @@ function locomotion(name, path, first, last) {
   const heading = new Quaternion().setFromAxisAngle(up, -Math.atan2(travel.x, travel.z));
   const duration = (last - first) * frameTime;
   const stride = Math.hypot(travel.x, travel.z) * scale;
+  const strideScale = name === 'walk' ? 0.75 : 1;
   const count = Math.round(duration * 40);
   const frames = [];
   for (let i = 0; i <= count; ++i) {
@@ -235,13 +236,16 @@ function locomotion(name, path, first, last) {
         return { a, h, rotation: wq(foot), pole, lift: clearance[j] };
       });
     });
-    let center = mean;
+    // The original stride is long for this rig. Bring the heels closer
+    // under the pelvis so the support leg can extend without locking.
+    let center = bindHips.y;
     targets.forEach((pair, i) => {
       const lifts = pair.map((_, side) => kernel.reduce((sum, k, j) => sum + k * targets[(i+count+j-3)%count][side].lift / 64, 0));
       const plant = Math.min(...lifts);
       pair.forEach(({a, h, lift}, side) => {
         a.y += lifts[side] - plant - lift;
-        const [, shin, foot] = legs[side].chain, length = shin.position.length() + foot.position.length() - 0.011;
+        a.z *= strideScale;
+        const [, shin, foot] = legs[side].chain, length = shin.position.length() + foot.position.length() - 0.007;
         const dy = Math.sqrt(Math.max(0, length ** 2 - (h.x-a.x)**2 - (h.z-a.z)**2));
         center = Math.min(center, clean[i].hips.y + a.y + dy - h.y - wave[i]);
       });
@@ -253,11 +257,20 @@ function locomotion(name, path, first, last) {
         const { a, rotation, pole } = targets[i][j];
         leg.solve(a, rotation, pole);
       });
+      // Level the eyes around the gaze axis without freezing the captured
+      // yaw, nod, or alternating shoulder swing.
+      const head = wq(bone('Head'));
+      const gaze = new Vector3(0,0,1).applyQuaternion(head);
+      const lateral = new Vector3(1,0,0).applyQuaternion(head);
+      const roll = Math.atan2(lateral.y,new Vector3(0,1,0).applyQuaternion(head).y);
+      for (const [n, share] of [['Neck',0.55],['Head',0.45]]) {
+        localize(bone(n), new Quaternion().setFromAxisAngle(gaze,-0.90*roll*share).multiply(wq(bone(n))));
+      }
       f.rotations = snapshot().rotations;
     });
   }
   clip(name, duration, [...clean, clean[0]]);
-  return stride;
+  return stride * strideScale;
 }
 
 const stride = { walk: locomotion('walk', walkPath, 121, 250), run: locomotion('run', runPath, 35, 123) };

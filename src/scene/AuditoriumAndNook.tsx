@@ -54,14 +54,13 @@ function buildDarkSideWallGeometry(): THREE.BufferGeometry {
   shape.lineTo(ROOM.stairsEndZ, ROOM.mezzanineY);
   shape.lineTo(9.2, ROOM.mezzanineY);
   shape.lineTo(9.2, 0);
+  // Open down to the plinth. A hidden concrete sill here catches the
+  // standing collider before the visitor's centre reaches the walkable step.
+  shape.lineTo(ROOM.nookEndZ, 0);
+  shape.lineTo(ROOM.nookEndZ, getStairsSlopeY(ROOM.nookEndZ) - 0.42);
+  shape.lineTo(ROOM.nookStartZ, 0.06);
+  shape.lineTo(ROOM.nookStartZ, 0);
   shape.closePath();
-
-  const hole = new THREE.Path();
-  hole.moveTo(ROOM.nookStartZ, 0.06);
-  hole.lineTo(ROOM.nookEndZ, 0.06);
-  hole.lineTo(ROOM.nookEndZ, getStairsSlopeY(ROOM.nookEndZ) - 0.42);
-  hole.closePath();
-  shape.holes.push(hole);
 
   const wallThickness = 0.16;
   const geo = new THREE.ExtrudeGeometry(shape, {

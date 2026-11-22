@@ -7,6 +7,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { getSlideYAtZ, getTreadSupportY, getWalkableFloorY, ROOM, SLIDE, stairInfluence, travelBaseY, WALK_STEP } from '../src/scene/layout.ts';
 import { beginSlide, sampleRide } from '../src/scene/slideRide.ts';
 import { createSeatContact } from '../src/scene/surfaceContact.ts';
+import { createSeatedPose } from '../src/scene/seatedPose.ts';
 import { createTreadFooting } from '../src/scene/treadFooting.ts';
 
 const data = await readFile(new URL('../public/models/studio-visitor.glb', import.meta.url));
@@ -47,6 +48,21 @@ test('idle fingertips stay outside the trousers and the thumbs face forward', ()
         assert.ok(!hit || (tip.x - hit.point.x) * sign > 0.003, `${side} ${finger} intersects jeans`);
       }
     }
+  }
+});
+
+test('walking keeps the eyes level and the crown close to standing height throughout the stride', () => {
+  const v=visitor(), idle=v.action('idle'), p=new Vector3();
+  const eyes=['LeftEye','RightEye'].map(v.mesh), head=v.mesh('Head');
+  v.mixer.update(0);
+  const standing=head.getWorldPosition(p).y;
+  idle.stop();
+  const walk=v.action('walk');
+  for(let i=0;i<96;i++) {
+    v.mixer.setTime(walk.getClip().duration*i/96);
+    const axis=eyes[0].getWorldPosition(new Vector3()).sub(eyes[1].getWorldPosition(p)).normalize();
+    assert.ok(Math.abs(axis.y)<Math.sin(3*Math.PI/180),'walk tilts the eye line');
+    assert.ok(standing-head.getWorldPosition(p).y<0.035,'walk loses standing height');
   }
 });
 
@@ -106,6 +122,7 @@ test('the sneakers do not cross through each other during a passing step', () =>
 test('the seat follows the straight board onto the mat without a position discontinuity', () => {
   for (const startZ of [SLIDE.topZ + 0.57, SLIDE.topZ - 0.08]) {
     const v = visitor(), stand = v.action('idle'), sit = v.action('slide');
+    const recovery=createSeatedPose(v.model);
     const ride = beginSlide(SLIDE.centerX, getSlideYAtZ(startZ), startZ, 0.7);
     const last = new Vector3(ride.x, ride.y, ride.z);
     const floor = p => getSlideYAtZ(p.z);
@@ -115,10 +132,13 @@ test('the seat follows the straight board onto the mat without a position discon
       const s = sampleRide(ride);
       v.player.position.set(s.x, s.y, s.z); v.player.rotation.set(s.pitch, s.yaw, 0, 'YXZ');
       assert.ok(v.player.position.distanceTo(last) < 0.12, 'teleport during mount or runout');
+      if (s.stand>0) assert.ok(s.z<=last.z+1e-8,'rocked backwards while standing up');
       last.copy(v.player.position);
-      v.model.position.set(0, 0, 0);
+      recovery.restore(); v.model.position.set(0, 0, 0);
       stand.weight = 1 - s.seat; sit.weight = s.seat; v.mixer.update(1 / 60);
-      v.contact(v.player); v.player.updateMatrixWorld(true);
+      v.contact(v.player);
+      if (s.stand>0 && !s.done) { recovery.push(v.player,s.stand); v.contact(v.player); }
+      v.player.updateMatrixWorld(true);
       const seat = clearance(v.pants, floor, true), soles = clearance(v.shoes, floor);
       assert.ok(Math.abs(Math.min(seat, soles)) < 0.005, 'rider unsupported or inside surface');
       if (s.seat === 1) {

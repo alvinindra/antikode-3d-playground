@@ -189,21 +189,27 @@ export function createTreadFooting(model: Object3D, scale: number) {
         const low = getWalkableFloorY(g.x, g.z - 0.29, ROOM.mezzanineY);
         const high = getWalkableFloorY(g.x, g.z + 0.29, ROOM.mezzanineY);
         if (low === high && moving > 0.98) continue;
-        let lift = 0, back = 0;
+        let lift = 0, back = 0, leadingZ = -Infinity, leadingY = 0, leadingX = 0;
         // The heel collar is partly skinned to the shin. At a vertical corner
         // resolve the smaller overlap: move a grazing heel back a few mm
         // rather than raising the boot (or the body) by the height of a riser.
         for (const j of leg.vertices) {
           shoes.getVertexPosition(j, at).applyMatrix4(shoes.matrixWorld);
+          if (at.z > leadingZ) { leadingZ=at.z; leadingY=at.y; leadingX=at.x; }
           const penetration = getWalkableFloorY(at.x, at.z, ROOM.mezzanineY) - at.y;
           if (penetration < 0.001) continue;
           const depth = at.z - nextRiserZ(at.x, at.y + 0.001);
           if (depth >= 0 && depth < penetration && depth < 0.10) back = Math.max(back, depth);
           else lift = Math.max(lift, penetration);
         }
-        if (lift || back) {
+        // During a pivot the side of the shoe can miss its supporting tread
+        // by less than a millimetre. Seat that edge just inside the nosing.
+        const upper=getWalkableFloorY(leadingX,leadingZ+0.002,ROOM.mezzanineY);
+        const inset=!back && !lift && leadingY>=upper && leadingY-upper<0.05 &&
+          upper>getWalkableFloorY(leadingX,leadingZ,ROOM.mezzanineY) ? 0.003 : 0;
+        if (lift || back || inset) {
           leg.foot.getWorldPosition(g);
-          g.z -= back ? 1.3 * back + 0.006 : 0;
+          g.z += back ? -(1.3 * back + 0.006) : inset;
           g.y += lift + 0.001;
           pole.copy(forward).addScaledVector(right, leg.sign * 0.09);
           leg.solve(g, leg.rotation, pole);

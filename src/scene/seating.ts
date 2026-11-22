@@ -34,7 +34,7 @@ const bags: SeatSite[]=TURF_BEANBAGS.map(b=>{
     yaw,feetY:ROOM.turfY,toeReach:0.60*b.scale[2]+0.075 };
 });
 const beds: SeatSite[]=NOOK_PADS.z.map((z,i)=>({id:`mattress-${i}`,kind:'bed',label:'kasur Cozy Nook',
-  x:NOOK_PADS.x+0.27,z,y:NOOK_PADS.top,yaw:-Math.PI/2,feetY:NOOK_PADS.top,toeReach:0.64}));
+  x:NOOK_PADS.x+0.37,z,y:NOOK_PADS.top,yaw:-Math.PI/2,feetY:NOOK_PADS.top,toeReach:0.78}));
 const chairs: SeatSite[]=GALLERY_CHAIRS.map((c,i)=>({id:`gallery-chair-${i}`,kind:'chair',label:'kursi kayu',
   x:c.x,z:c.z,y:c.top,yaw:c.yaw,feetY:0,toeReach:0.48}));
 
@@ -66,16 +66,79 @@ export function nearbySeat(p: Vector3): SeatSite | null {
   return nearest;
 }
 
-export function takeSeat(site: SeatSite, from: Vector3, yaw: number) {
-  return {site,from:from.clone(),entryY:from.y,yaw,t:0,weight:0,leaving:false,
-    duration:Math.max(0.72,Math.hypot(from.x-site.x,from.z-site.z)/1.25),morphs:[] as number[][]};
+export function frontExit(site: SeatSite, clear: (p: Vector3) => boolean) {
+  const p=new Vector3();
+  if(site.kind==='bed') {
+    // Stand on the same pad if the sloping roof clears the head. Otherwise
+    // step straight down off its lip, never sideways across the other bed.
+    for(const x of [NOOK_PADS.x-0.24,NOOK_PADS.x-0.43,ROOM.nookWallX-0.24,ROOM.nookWallX-0.44,ROOM.nookWallX-0.60]) {
+      p.set(x,getWalkableFloorY(x,site.z,site.feetY),site.z);
+      if(clear(p)) return p;
+    }
+    return null;
+  }
+  const reach=site.kind==='bag' ? site.toeReach+0.30 : site.toeReach+0.20;
+  // A round bag in a tight cluster may only be accessible from the side.
+  // Pick that orientation before sitting, never by turning during the rise.
+  const steps=site.kind==='bag'?24:6;
+  let nextTread: Vector3 | null=null;
+  for (let i=0;i<=steps*2;i++) for (const extra of [0,0.15,-0.12,0.32,0.52]) {
+    const yaw=site.yaw+Math.ceil(i/2)*(i%2?1:-1)*Math.PI/24;
+    p.set(site.x+Math.sin(yaw)*(reach+extra),0,site.z+Math.cos(yaw)*(reach+extra));
+    p.y=getWalkableFloorY(p.x,p.z,site.feetY);
+    if (!clear(p)) continue;
+    if(site.kind==='bag' && p.y>site.feetY+0.04) {
+      if (!nextTread && p.y-site.feetY<=ROOM.tierHeight) nextTread=p.clone();
+    } else return p;
+  }
+  return nextTread;
+}
+
+export function takeSeat(site: SeatSite, from: Vector3, yaw: number, exit=frontExit(site,()=>true)!) {
+  if (site.kind==='bag') site={...site,yaw:Math.atan2(exit.x-site.x,exit.z-site.z)};
+  // The apron is where a person stands in front of the seat before lowering the hips
+  // back onto it. Routing through it keeps the legs out of the bench face.
+  // A bag's apron is just past its front edge, where the feet land once seated.
+  const reach=site.kind==='bed' ? 0.42 : site.kind==='bag' ? site.toeReach+0.07 : 0.32;
+  const apron={x:site.x+Math.sin(site.yaw)*reach,z:site.z+Math.cos(site.yaw)*reach};
+  const path=Math.hypot(from.x-apron.x,from.z-apron.z)+reach;
+  return {site,from:from.clone(),entryY:from.y,yaw,t:0,weight:0,lean:0,leaving:false,rise:0,exit,
+    apron,duration:Math.min(1.7,Math.max(0.95,path/1.0)),morphs:[] as number[][]};
 }
 export type SeatUse=ReturnType<typeof takeSeat>;
 export function advanceSeat(use: SeatUse, p: Vector3, dt: number) {
-  use.t=clamp(use.t+(use.leaving?-1:1)*dt/use.duration,0,1);
-  const t=smoothstep(use.t,0,1), {site,from}=use;
-  use.weight=smoothstep(use.t,0.04,1);
-  p.set(lerp(from.x,site.x,t),lerp(from.y,site.y,t),lerp(from.z,site.z,t));
+  const {site,from,apron}=use;
+  // A request during entry is queued until the hips are supported. Never replay
+  // the approach backwards or inherit the heading the visitor approached from.
+  if (use.leaving && use.t===1) {
+    use.rise=clamp(use.rise+dt/(site.kind==='bed'?1.65:1.25),0,1);
+    const bed=site.kind==='bed', r=use.rise, lift=smoothstep(r,bed?0.05:0.21,bed?0.87:0.88);
+    const transfer=bed ? smoothstep(r,0.20,0.94)
+      : 0.30*smoothstep(r,0.05,0.44)+0.70*smoothstep(r,0.24,1);
+    p.set(lerp(site.x,use.exit.x,transfer),lerp(site.y,use.exit.y,bed?smoothstep(r,0.44,0.82):lift),lerp(site.z,use.exit.z,transfer));
+    use.weight=1-lift;
+    use.lean=0;
+    for (const morph of use.morphs) morph[0]=1-smoothstep(r,0.22,0.58);
+    return site.yaw;
+  }
+  use.t=clamp(use.t+dt/use.duration,0,1);
+  const t=use.t;
+  if(site.kind==='bed') {
+    // Sit on the lip before scooting under the sloped lining, not after
+    // walking upright into it. Keep the approach in the selected pad's lane.
+    const align=smoothstep(t,0,0.52), scoot=smoothstep(t,0.36,1);
+    const lip=clamp(from.x,NOOK_PADS.x-NOOK_PADS.width/2+0.08,site.x);
+    p.set(lerp(lerp(from.x,lip,align),site.x,scoot),lerp(from.y,site.y,smoothstep(t,0.12,0.58)),lerp(from.z,site.z,align));
+    use.weight=smoothstep(t,0.10,0.60);
+    return use.yaw+smoothstep(t,0,0.48)*Math.atan2(Math.sin(site.yaw-use.yaw),Math.cos(site.yaw-use.yaw));
+  }
+  const approach=smoothstep(t,0,0.62), back=smoothstep(t,0.48,1), drop=smoothstep(t,0.55,1);
+  use.weight=smoothstep(t,0.34,1);
+  const dip=0.024*Math.sin(Math.PI*smoothstep(t,0.80,1));
+  p.set(lerp(lerp(from.x,apron.x,approach),site.x,back),lerp(from.y,site.y,drop)-dip,
+    lerp(lerp(from.z,apron.z,approach),site.z,back));
+  // The torso tips forward mid-transition, the way people counterbalance a squat.
+  use.lean=0.12*Math.sin(Math.PI*smoothstep(t,0.45,0.97));
   for(const morph of use.morphs) morph[0]=use.weight;
-  return use.yaw+t*Math.atan2(Math.sin(site.yaw-use.yaw),Math.cos(site.yaw-use.yaw));
+  return use.yaw+smoothstep(t,0,0.6)*Math.atan2(Math.sin(site.yaw-use.yaw),Math.cos(site.yaw-use.yaw));
 }
