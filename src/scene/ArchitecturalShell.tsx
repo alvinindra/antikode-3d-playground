@@ -11,6 +11,11 @@ interface ArchitecturalShellProps {
 }
 
 const FRAME_Z_POSITIONS = [-7.85, -4.1, -0.35, 3.4, 7.15, 10.65];
+const DECK_OFFSET = 0.06;
+const office = { left: -3.2, right: ROOM.rightWallX, z: 8.2, glassHeight: 2.3 };
+const officeWidth = office.right - office.left;
+const officeX = (office.left + office.right) / 2;
+const glassHeadY = ROOM.mezzanineY + office.glassHeight;
 
 export function ArchitecturalShell({
   isDay,
@@ -43,6 +48,16 @@ export function ArchitecturalShell({
     for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 8, uv.getY(i) / 7);
     return geo;
   }, []);
+  const officeFascia = useMemo(() => {
+    // The glazing head is level; only the upper edge follows the roof deck.
+    const section = new THREE.Shape();
+    section.moveTo(office.left, glassHeadY);
+    section.lineTo(office.right, glassHeadY);
+    section.lineTo(office.right, getRoofY(office.right) + DECK_OFFSET);
+    section.lineTo(office.left, getRoofY(office.left) + DECK_OFFSET);
+    section.closePath();
+    return new THREE.ExtrudeGeometry(section, { depth: 0.16, bevelEnabled: false });
+  }, []);
 
   // Compute purlin positions across the full sloped roof
   const purlins = useMemo(() => {
@@ -51,10 +66,10 @@ export function ArchitecturalShell({
     for (let i = 0; i <= count; i++) {
       const t = i / count;
       const x = THREE.MathUtils.lerp(ROOM.galleryMinX + 0.4, ROOM.rightWallX - 0.15, t);
-      items.push({ x, y: getRoofY(x) - 0.08 });
+      items.push({ x, y: getRoofY(x) + DECK_OFFSET - 0.07 / Math.cos(roofAngle) });
     }
     return items;
-  }, []);
+  }, [roofAngle]);
 
   // Compute track spotlight head transforms (dual heads along 3 longitudinal rails)
   const spotlightPositions = useMemo(() => {
@@ -263,29 +278,26 @@ export function ArchitecturalShell({
           />
         </mesh>
 
-        {/* Mezzanine angled dark acoustic soffit/fascia overhead (Photo 2 upper left) */}
-        <mesh
-          position={[1.8, 5.35, ROOM.stairsEndZ + 0.25]}
-          rotation={[0, 0, -0.08]}
-          material={mat.darkPlaster}
-        >
-          <boxGeometry args={[8.4, 0.85, 0.18]} />
+        <mesh name="office-roof-fascia" position-z={office.z - 0.08} geometry={officeFascia}
+          material={mat.darkPlaster} userData={{ collision: 'faces' }} receiveShadow />
+        <mesh position={[officeX, glassHeadY - 0.025, office.z]} material={mat.blackSteel}>
+          <boxGeometry args={[officeWidth, 0.05, 0.1]} />
         </mesh>
 
         {/* Glass office partition on mezzanine (Z = 8.2) + subtle timeline graphic */}
-        <mesh position={[1.2, ROOM.mezzanineY + 1.15, 8.2]} material={mat.glassRailing}>
-          <boxGeometry args={[8.8, 2.3, 0.04]} />
+        <mesh position={[officeX, ROOM.mezzanineY + office.glassHeight / 2, office.z]} material={mat.glassRailing}>
+          <boxGeometry args={[officeWidth, office.glassHeight, 0.04]} />
         </mesh>
         <mesh
-          position={[1.4, ROOM.mezzanineY + 1.38, 8.17]}
+          position={[1.4, ROOM.mezzanineY + office.glassHeight / 2, office.z - 0.03]}
           rotation={[0, Math.PI, 0]}
           material={mat.mezzanineTimelineGlass}
         >
-          <planeGeometry args={[6.4, 2.2]} />
+          <planeGeometry args={[6.4, 2.1]} />
         </mesh>
-        {[-3.1, -0.5, 2.2, 4.9].map((gx) => (
-          <mesh key={gx} position={[gx, ROOM.mezzanineY + 1.15, 8.2]} material={mat.blackSteel}>
-            <boxGeometry args={[0.05, 2.3, 0.06]} />
+        {[office.left + 0.025, -0.5, 2.2, office.right - 0.025].map((gx) => (
+          <mesh key={gx} position={[gx, ROOM.mezzanineY + office.glassHeight / 2, office.z]} material={mat.blackSteel}>
+            <boxGeometry args={[0.05, office.glassHeight, 0.06]} />
           </mesh>
         ))}
 
@@ -315,16 +327,19 @@ export function ArchitecturalShell({
         ))}
 
         {/* Two iconic suspended linear LED light bars in the mezzanine office (Photo 2!) */}
-        {ledOn && (
-          <>
-            <mesh position={[1.8, ROOM.mezzanineY + 1.85, 8.75]} material={mat.coolLinearLed}>
+        {[8.75, 9.85].map(z => (
+          <group key={z} position-z={z}>
+            <mesh position={[1.8, glassHeadY - 0.12, 0]} material={ledOn ? mat.coolLinearLed : mat.blackSteel}>
               <boxGeometry args={[4.8, 0.045, 0.045]} />
             </mesh>
-            <mesh position={[1.8, ROOM.mezzanineY + 1.62, 9.85]} material={mat.coolLinearLed}>
-              <boxGeometry args={[4.8, 0.045, 0.045]} />
-            </mesh>
-          </>
-        )}
+            {[-0.28, 3.88].map(x => {
+              const bottom = glassHeadY - 0.12 + 0.0225, top = getRoofY(x) + DECK_OFFSET;
+              return <mesh key={x} position={[x, (bottom + top) / 2, 0]} material={mat.blackSteel}>
+                <boxGeometry args={[0.008, top - bottom, 0.008]} />
+              </mesh>;
+            })}
+          </group>
+        ))}
 
         {/* Adjacent open-office mezzanine balcony visible on right side of Photo 2 */}
         <group position={[-7.6, ROOM.mezzanineY, 7.6]}>
@@ -349,7 +364,7 @@ export function ArchitecturalShell({
       {/* === EXPOSED SLOPED INDUSTRIAL STEEL ROOF === */}
       {/* Ribbed insulated metal ceiling deck */}
       <mesh
-        position={[roofCenterX, roofCenterY + 0.06, hallCenterZ]}
+        position={[roofCenterX, roofCenterY + DECK_OFFSET, hallCenterZ]}
         rotation={[Math.PI / 2, roofAngle, 0]}
         material={mat.ceilingDeck}
       >
