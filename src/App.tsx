@@ -1,14 +1,17 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
-import * as THREE from 'three';
-import { ArchitecturalShell } from './scene/ArchitecturalShell';
-import { FocalOakWall } from './scene/FocalOakWall';
-import { AuditoriumAndNook } from './scene/AuditoriumAndNook';
-import { PlayerController, PlayerHudCallbackState, ViewMode, type PlayerInput } from './scene/PlayerController';
-import { SceneLighting } from './scene/SceneLighting';
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { PlayerHudCallbackState, ViewMode, PlayerInput } from './scene/PlayerController';
 import { HUD } from './components/HUD';
 import { LoadingScreen } from './components/LoadingScreen';
 import { isLocalDay, type DaylightMode } from './daylight';
+
+const RoomScene = lazy(() => import('./scene/RoomScene'));
+
+class SceneBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { this.props.onError(); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('third-person');
@@ -36,68 +39,44 @@ export function App() {
   const [spotlightsOn, setSpotlightsOn] = useState(true);
   const [bloomEnabled, setBloomEnabled] = useState(true);
   const [screenOn, setScreenOn] = useState(true);
-  const [fps, setFps] = useState(60);
-  const input = useRef<PlayerInput>({x:0,forward:0});
-  const staticRoom = useRef<THREE.Group>(null);
+  const [fps, setFps] = useState(0);
+  const [entered, setEntered] = useState(false);
+  const [percent, setPercent] = useState(0);
+  const [hasFrame, setHasFrame] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const ready = percent === 100 && hasFrame && !failed;
+  const input = useRef<PlayerInput>({ x: 0, forward: 0, blocked: true });
+  const sceneRoot = useRef<HTMLDivElement>(null);
   const [hudState, setHudState] = useState<PlayerHudCallbackState>({
     prompt: null,
     locationLabel: 'Playground Turf',
     actionable: false,
   });
 
-  const handleHudUpdate = useCallback((info: PlayerHudCallbackState) => {
-    setHudState(info);
-  }, []);
-
-  const handleFpsSample = useCallback((sampledFps: number) => {
-    setFps(sampledFps);
-  }, []);
-
-  // HUD samples change several times during a stroke, not the auditorium.
-  const scene = useMemo(() => (
-      <Canvas
-        shadows="percentage"
-        dpr={[1, 1.5]}
-        camera={{ fov: 58, near: 0.1, far: 80, position: [-0.35, 2.2, -6.5] }}
-        gl={{
-          antialias: true,
-          powerPreference: 'high-performance',
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.08,
-        }}
-      >
-        <Suspense fallback={null}>
-        <SceneLighting
-          isDay={isDay}
-          ledOn={ledOn}
-          spotlightsOn={spotlightsOn}
-          bloomEnabled={bloomEnabled}
-        />
-
-        <group ref={staticRoom}>
-          <ArchitecturalShell isDay={isDay} spotlightsOn={spotlightsOn} ledOn={ledOn} />
-          <FocalOakWall ledOn={ledOn} screenOn={screenOn} />
-          <AuditoriumAndNook ledOn={ledOn} />
-        </group>
-
-        <PlayerController
-          staticRoom={staticRoom}
-          roomRevision={Number(ledOn) + 2 * Number(screenOn)}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onHudUpdate={handleHudUpdate}
-          onFpsSample={handleFpsSample}
-          input={input.current}
-        />
-        </Suspense>
-      </Canvas>
-  ), [viewMode, isDay, ledOn, spotlightsOn, bloomEnabled, screenOn, handleHudUpdate, handleFpsSample]);
+  const firstFrame = useCallback(() => setHasFrame(true), []);
+  useEffect(() => {
+    if (ready) {
+      input.current.blocked = false;
+      setEntered(true);
+    }
+  }, [ready]);
+  useEffect(() => {
+    if (entered) sceneRoot.current?.querySelector('canvas')?.focus({ preventScroll: true });
+  }, [entered]);
 
   return (
     <div className="playground">
-      {scene}
-      <LoadingScreen />
-      <HUD
+      <div className="scene-root" ref={sceneRoot} inert={!entered}>
+        <SceneBoundary onError={() => { setFailed(true); setEntered(false); }}>
+          <Suspense fallback={null}>
+            <RoomScene viewMode={viewMode} onViewModeChange={setViewMode} isDay={isDay}
+              ledOn={ledOn} spotlightsOn={spotlightsOn} bloomEnabled={bloomEnabled} screenOn={screenOn}
+              input={input.current} onProgress={setPercent} onFrame={firstFrame}
+              onHudUpdate={setHudState} onFpsSample={setFps} />
+          </Suspense>
+        </SceneBoundary>
+      </div>
+      {!entered ? <LoadingScreen percent={percent} failed={failed} /> : <HUD
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         isDay={isDay}
@@ -116,7 +95,7 @@ export function App() {
         interactionPrompt={hudState.prompt}
         input={input.current}
         onInteract={hudState.actionable ? () => input.current.command?.('KeyE') : undefined}
-      />
+      />}
     </div>
   );
 }

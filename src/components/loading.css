@@ -1,0 +1,15 @@
+.loader {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(ellipse at center, #fcfaf4, var(--paper) 72%);
+}
+.loader-content { width: min(100%, 236px); text-align: center; }
+.loader .room-mark { width: 42px; height: 42px; color: var(--orange); }
+.loader h1 { margin: 9px 0 17px; font-size: 21px; letter-spacing: -.045em; font-weight: 650; }
+.load-progress { display: flex; align-items: center; gap: 12px; }
+.load-progress progress { flex: 1; min-width: 0; height: 3px; border: 0; border-radius: 3px; overflow: hidden; appearance: none; color: var(--orange); background: var(--rule); }
+.load-progress progress::-webkit-progress-bar { background: var(--rule); }
+.load-progress progress::-webkit-progress-value { background: var(--orange); }
+.load-progress progress::-moz-progress-bar { background: var(--orange); }
+.load-progress span { width: 4ch; color: var(--sub); text-align: right; }
+.loader p { color: var(--sub); font-size: 14px; line-height: 1.5; }
+.loader button { margin-top: 16px; min-height: 44px; padding: 0 18px; border-radius: 4px; background: var(--ink); color: var(--paper); font-weight: 650; }
