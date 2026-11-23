@@ -7,8 +7,10 @@ import { FocalOakWall } from './FocalOakWall';
 import { AuditoriumAndNook } from './AuditoriumAndNook';
 import { PlayerController, type PlayerInput, type PlayerHudCallbackState, type ViewMode } from './PlayerController';
 import { SceneLighting } from './SceneLighting';
+import type { CatOutfit } from '../catOutfit';
 
 interface RoomProps {
+  catOutfit: CatOutfit;
   isDay: boolean;
   ledOn: boolean;
   spotlightsOn: boolean;
@@ -54,7 +56,7 @@ export default memo(function RoomScene(p: RoomProps) {
       </group>
       <PlayerController staticRoom={staticRoom} roomRevision={Number(p.ledOn) + 2 * Number(p.screenOn)}
         viewMode={p.viewMode} onViewModeChange={p.onViewModeChange} onHudUpdate={p.onHudUpdate}
-        onFpsSample={p.onFpsSample} input={p.input} />
+        onFpsSample={p.onFpsSample} input={p.input} catOutfit={p.catOutfit} />
       <FirstFrame onFrame={p.onFrame} />
     </Suspense>
   </Canvas>;

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, type RefObject } from 'react';
+import { Suspense, useLayoutEffect, useMemo, type RefObject } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -8,11 +8,13 @@ import { ROOM } from './layout';
 import { getSceneMaterials } from './materials';
 import { createFurContact } from './petContact';
 import type { PetInteraction } from './petInteraction';
+import type { CatOutfit } from '../catOutfit';
+import { JouninVest } from './JouninVest';
 
 const URL = `${import.meta.env.BASE_URL}models/studio-cat.glb?v=6b036541`;
 type GroupRef = RefObject<THREE.Group | null>;
 
-export function StudioCat({ body, player, pet }: { body: GroupRef; player: GroupRef; pet: PetInteraction }) {
+export function StudioCat({ body, player, pet, outfit }: { body: GroupRef; player: GroupRef; pet: PetInteraction; outfit: CatOutfit }) {
   const { scene, animations } = useGLTF(URL);
   const cat = useMemo(() => {
     const model = clone(scene);
@@ -95,5 +97,6 @@ export function StudioCat({ body, player, pet }: { body: GroupRef; player: Group
       <planeGeometry />
     </mesh>
     <primitive object={cat.model} scale={CAT_SCALE} dispose={null} />
+    {outfit === 'jounin' && <Suspense fallback={null}><JouninVest model={cat.model} /></Suspense>}
   </group>;
 }

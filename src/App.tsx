@@ -3,6 +3,7 @@ import type { PlayerHudCallbackState, ViewMode, PlayerInput } from './scene/Play
 import { HUD } from './components/HUD';
 import { LoadingScreen } from './components/LoadingScreen';
 import { isLocalDay, type DaylightMode } from './daylight';
+import { readCatOutfit, saveCatOutfit, type CatOutfit } from './catOutfit';
 
 const RoomScene = lazy(() => import('./scene/RoomScene'));
 
@@ -15,6 +16,11 @@ class SceneBoundary extends Component<{ children: ReactNode; onError: () => void
 
 export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('third-person');
+  const [catOutfit, setCatOutfit] = useState(readCatOutfit);
+  const changeCatOutfit = (outfit: CatOutfit) => {
+    setCatOutfit(outfit);
+    saveCatOutfit(outfit);
+  };
   const [daylightMode, setDaylightMode] = useState<DaylightMode>('auto');
   const [localDay, setLocalDay] = useState(isLocalDay);
   const isDay = daylightMode === 'auto' ? localDay : daylightMode === 'day';
@@ -69,7 +75,7 @@ export function App() {
       <div className="scene-root" ref={sceneRoot} inert={!entered}>
         <SceneBoundary onError={() => { setFailed(true); setEntered(false); }}>
           <Suspense fallback={null}>
-            <RoomScene viewMode={viewMode} onViewModeChange={setViewMode} isDay={isDay}
+            <RoomScene viewMode={viewMode} onViewModeChange={setViewMode} isDay={isDay} catOutfit={catOutfit}
               ledOn={ledOn} spotlightsOn={spotlightsOn} bloomEnabled={bloomEnabled} screenOn={screenOn}
               input={input.current} onProgress={setPercent} onFrame={firstFrame}
               onHudUpdate={setHudState} onFpsSample={setFps} />
@@ -77,6 +83,8 @@ export function App() {
         </SceneBoundary>
       </div>
       {!entered ? <LoadingScreen percent={percent} failed={failed} /> : <HUD
+        catOutfit={catOutfit}
+        onCatOutfitChange={changeCatOutfit}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         isDay={isDay}

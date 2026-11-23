@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="420" viewBox="0 0 300 210">
+  <defs>
+    <radialGradient id="snap" cx=".35" cy=".27" r=".75">
+      <stop stop-color="#edce98"/>
+      <stop offset=".7" stop-color="#ba9663"/>
+      <stop offset="1" stop-color="#785e40"/>
+    </radialGradient>
+  </defs>
+  <circle cx="150" cy="105" r="58" fill="#d41010" stroke="#171313" stroke-width="4.5"/>
+  <path d="M149 102.5 C145 109 144 119 151 123 C159 129 170 124 175 116
+           C184 101 176 81 161 77 C140 70 119 84 118.5 106
+           C117 136 142 162 175 155.5 Q178 155 180.5 153"
+    fill="none" stroke="#171313" stroke-width="6.7" stroke-linecap="round"/>
+  <g fill="url(#snap)" stroke="#4c4235" stroke-width="1.2">
+    <circle cx="52" cy="52" r="5.5"/>
+    <circle cx="248" cy="52" r="5.5"/>
+  </g>
+</svg>
