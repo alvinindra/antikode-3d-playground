@@ -556,7 +556,7 @@ function generateLedWallScreenTexture(): THREE.CanvasTexture {
   ctx.fillStyle = 'rgba(210, 218, 228, 0.45)';
   ctx.font = '500 12px Inter, system-ui, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('PLAYGROUND AUDITORIUM · JAKARTA', 42, h - 26);
+  ctx.fillText('ANTIKODE PLAYGROUND · JAKARTA', 42, h - 26);
   ctx.textAlign = 'right';
   ctx.fillText('INTERACTIVE 3D REPLICA', w - 42, h - 26);
 

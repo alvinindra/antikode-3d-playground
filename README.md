@@ -1,6 +1,6 @@
-# Antikode 3D Playground
+# Antikode Playground
 
-Auditorium 3D interaktif yang dibuat dengan React dan Three.js. Jelajahi tribun
+Ruang 3D interaktif yang dibuat dengan React dan Three.js. Jelajahi tribun
 kayu, gunakan perosotan, duduk di bean bag atau kasur Cozy Nook, dan elus kucing
 yang berkeliaran di area rumput.
 
@@ -14,19 +14,21 @@ npm ci
 npm run dev
 ```
 
-Buka alamat yang ditampilkan Vite. Gunakan `WASD` untuk berjalan, `Shift` untuk
+Buka alamat yang ditampilkan Vite. Setelah loading selesai, kamu langsung masuk
+ke Antikode Playground tanpa menekan tombol.
+Gunakan `WASD` untuk berjalan, `Shift` untuk
 berlari, dan `Space` untuk melompat. Dekati kucing, tempat duduk, atau perosotan
 dan tekan `E` saat petunjuk muncul. Tekan `V` untuk mengganti sudut pandang.
 Untuk melihat entrance, tekan `5` dari sisi lounge atau `6` dari sisi tribun.
-Kedua sudut juga tersedia di **Info → Kamera**. Pencahayaan otomatis mengikuti
+Kedua sudut juga tersedia di **Menu ruang → Kamera**. Pencahayaan otomatis mengikuti
 jam lokal perangkat: siang pukul 06.00 hingga sebelum 16.00, malam selebihnya.
-Di **Info → Suasana**, pilih **Siang** atau **Malam** untuk mengganti secara manual,
+Di **Menu ruang → Suasana**, pilih **Siang** atau **Malam** untuk mengganti secara manual,
 atau **Otomatis** untuk kembali mengikuti jam.
 
 ## Verifikasi
 
 Jalankan `bun run test:collision` untuk menguji kontak karakter dengan geometri
-auditorium, termasuk papan kredit, pintu, tangga, kaca, balkon, dan furnitur.
+ruang, termasuk papan kredit, pintu, tangga, kaca, balkon, dan furnitur.
 Mesh baru di dalam grup `staticRoom` otomatis menjadi penghalang. Untuk mesh
 cekung dengan bukaan, gunakan `userData={{ collision: 'faces' }}` agar bukaannya
 tetap bisa dilalui. Permukaan dengan `collision: 'terrain'` ditangani oleh

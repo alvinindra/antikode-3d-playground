@@ -1,8 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { CAMERA_PRESETS } from './cameraPresets';
 import {
-  CAMERA_PRESETS,
   FOYER,
   getRoofY,
   getWalkableFloorY,
@@ -25,6 +25,7 @@ export type ViewMode = 'third-person' | 'first-person' | (typeof CAMERA_PRESETS)
 export interface PlayerInput {
   x: number;
   forward: number;
+  blocked: boolean;
   command?: (code: 'KeyE' | 'KeyF' | 'KeyR' | 'Space') => void;
 }
 
@@ -77,7 +78,7 @@ function getLocationLabel(x: number, y: number, z: number): string {
     return 'Wooden Slide';
   }
   if (x >= ROOM.nookWallX && x <= ROOM.slideLeftX && z >= ROOM.stairsStartZ && z < ROOM.stairsEndZ) {
-    return 'Stepping Auditorium';
+    return 'Tribun kayu';
   }
   if (x >= ROOM.turfLeftX && z >= ROOM.turfStartZ && z <= ROOM.turfEndZ) {
     return 'Playground Turf';
@@ -153,7 +154,7 @@ export function PlayerController({
   useEffect(() => {
     const dom = gl.domElement;
     dom.tabIndex = 0;
-    dom.setAttribute('aria-label', 'Jelajahi auditorium 3D');
+    dom.setAttribute('aria-label', 'Jelajahi Antikode Playground');
 
     const interact = () => {
       if (pet.phase!=='off') { releasePet(pet); return; }
@@ -231,7 +232,7 @@ export function PlayerController({
     };
     input.command=command;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey ||
+      if (input.blocked || document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey ||
         (e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.matches('input, textarea, select')))) return;
       if (e.code === 'Space' && e.target instanceof HTMLButtonElement) return;
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
@@ -629,7 +630,7 @@ export function PlayerController({
     }
 
     if (entryPhoto) { nextPrompt = null; actionable = false; }
-    const locationLabel = entryPhoto && presetView ? presetView.label.split(' · ')[1] : getLocationLabel(pos.x, pos.y, pos.z);
+    const locationLabel = entryPhoto && presetView ? presetView.label : getLocationLabel(pos.x, pos.y, pos.z);
     if (
       nextPrompt !== lastHudPromptRef.current ||
       locationLabel !== lastHudLocationRef.current

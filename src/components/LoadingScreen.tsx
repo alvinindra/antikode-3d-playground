@@ -1,29 +1,17 @@
-import { useEffect, useState } from 'react';
-import { useProgress } from '@react-three/drei';
+import { RoomMark } from './Marks';
 
-export function LoadingScreen() {
-  const { active, progress } = useProgress();
-  const done = !active && progress >= 100;
-  const [hidden, setHidden] = useState(false);
-
-  // Keep the veil through the fade, then unmount so it never intercepts input.
-  useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => setHidden(true), 650);
-    return () => clearTimeout(t);
-  }, [done]);
-
-  if (hidden) return null;
-  return (
-    <div className={`loader${done ? ' done' : ''}`} role="status" aria-live="polite">
-      <div className="loader-card">
-        <div className="eyebrow">Playground / Auditorium 3D</div>
-        <strong>Memuat ruang…</strong>
-        <div className="loader-track">
-          <div className="loader-fill" style={{ width: `${Math.round(progress)}%` }} />
-        </div>
-        <span className="loader-pct">{Math.round(progress)}%</span>
-      </div>
+export function LoadingScreen({ percent, failed }: { percent: number; failed: boolean }) {
+  return <main className="loader">
+    <div className="loader-content">
+      <RoomMark />
+      <h1 role="status">{failed ? 'Gagal memuat' : 'Memuat'}<br />Antikode Playground</h1>
+      {failed ? <>
+        <p>Periksa koneksi dan pastikan WebGL aktif di browsermu.</p>
+        <button onClick={() => window.location.reload()}>Coba lagi</button>
+      </> : <div className="load-progress">
+        <progress aria-label="Pemuatan aset Antikode Playground" value={percent} max={100} />
+        <span className="mono" aria-hidden="true">{percent}%</span>
+      </div>}
     </div>
-  );
+  </main>;
 }
