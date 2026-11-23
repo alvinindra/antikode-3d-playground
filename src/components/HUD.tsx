@@ -4,8 +4,10 @@ import { Icon, RoomMark } from './Marks';
 import type { PlayerInput, ViewMode } from '../scene/PlayerController';
 import { TouchPad } from './TouchPad';
 import type { DaylightMode } from '../daylight';
+import { catOutfits, type CatOutfit } from '../catOutfit';
 
 interface HUDProps {
+  catOutfit: CatOutfit; onCatOutfitChange: (outfit: CatOutfit) => void;
   input: PlayerInput;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
@@ -91,7 +93,7 @@ export function HUD(p: HUDProps) {
             </div>
             <dl className="gestures touch-only">{gestures.map(([key, action]) =>
               <div key={key}><dt>{key}</dt><dd>{action}</dd></div>)}</dl>
-            <p className="guide-note">Dekati kucing, kursi, atau perosotan. Pilih aksi yang muncul untuk berinteraksi.</p>
+            <p className="guide-note">Dekati Coretax si kucing, kursi, atau perosotan. Pilih aksi yang muncul untuk berinteraksi.</p>
             <div className="quick-actions">
               {([['KeyF','Menari / berhenti'],['KeyR','Reset posisi']] as const).map(([key,label]) =>
                 <button key={key} onClick={() => { close(); p.input.command?.(key); }}>{label}<kbd className="keyboard-only">{key.slice(3)}</kbd></button>)}</div>
@@ -114,6 +116,14 @@ export function HUD(p: HUDProps) {
             <p className="guide-note">{p.daylightMode === 'auto' ? `Saat ini ${p.isDay ? 'siang' : 'malam'}, mengikuti jam perangkatmu.` : 'Pilih Otomatis untuk mengikuti jam perangkatmu.'}</p>
             <h3>Pencahayaan</h3><div className="light-list">
               {lighting.map(([label, active, toggle]) => <button key={label} role="switch" aria-checked={active} onClick={toggle}>{label}<i /></button>)}
+            </div>
+            <h3 id="outfit-title">Baju Coretax</h3>
+            <div className="shots outfit-options" role="group" aria-labelledby="outfit-title">
+              {(Object.keys(catOutfits) as CatOutfit[]).map(id =>
+                <button key={id} aria-pressed={p.catOutfit === id} onClick={() => p.onCatOutfitChange(id)}>
+                  <i className={`fabric ${id}`} aria-hidden="true" />{catOutfits[id]}
+                  {p.catOutfit === id && <Icon name="check" />}
+                </button>)}
             </div>
           </section>}
         </div>

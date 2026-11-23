@@ -1,7 +1,7 @@
 # Antikode Playground
 
 Ruang 3D interaktif yang dibuat dengan React dan Three.js. Jelajahi tribun
-kayu, gunakan perosotan, duduk di bean bag atau kasur Cozy Nook, dan elus kucing
+kayu, gunakan perosotan, duduk di bean bag atau kasur Cozy Nook, dan elus Coretax, kucing
 yang berkeliaran di area rumput.
 
 ## Menjalankan proyek
@@ -24,6 +24,8 @@ Kedua sudut juga tersedia di **Menu ruang → Kamera**. Pencahayaan otomatis men
 jam lokal perangkat: siang pukul 06.00 hingga sebelum 16.00, malam selebihnya.
 Di **Menu ruang → Suasana**, pilih **Siang** atau **Malam** untuk mengganti secara manual,
 atau **Otomatis** untuk kembali mengikuti jam.
+Di menu yang sama, gunakan **Baju Coretax** untuk berganti antara jersey **Brazil**
+dan rompi **Jounin** dengan emblem spiral hitam di atas lingkaran merah. Pilihan baju tersimpan di browser ini.
 
 ## Verifikasi
 

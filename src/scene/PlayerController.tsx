@@ -19,6 +19,7 @@ import { blocksCatFootprint } from './catRoutine';
 import { advancePet, beginPet, createPetInteraction, petSpot, releasePet } from './petInteraction';
 import { advanceSeat, frontExit, nearbySeat, takeSeat, type SeatUse } from './seating';
 import { buildRoomContacts, outsideWalkableVolume } from './roomContacts';
+import type { CatOutfit } from '../catOutfit';
 
 export type ViewMode = 'third-person' | 'first-person' | (typeof CAMERA_PRESETS)[number]['id'];
 
@@ -36,6 +37,7 @@ export interface PlayerHudCallbackState {
 }
 
 interface PlayerControllerProps {
+  catOutfit: CatOutfit;
   staticRoom: RefObject<THREE.Group | null>;
   roomRevision: number;
   viewMode: ViewMode;
@@ -91,6 +93,7 @@ function getLocationLabel(x: number, y: number, z: number): string {
 }
 
 export function PlayerController({
+  catOutfit,
   staticRoom,
   roomRevision,
   viewMode,
@@ -624,7 +627,7 @@ export function PlayerController({
     } else if (groundedRef.current) {
       const choice=nearbyAction(pos,catGroupRef.current,spare,contacts.current);
       actionable=!!choice;
-      if(choice==='cat') nextPrompt='Elus kucing';
+      if(choice==='cat') nextPrompt='Elus Coretax';
       else if(choice==='slide') nextPrompt='Naik perosotan';
       else if(choice) nextPrompt=`Duduk di ${choice.label}`;
     }
@@ -649,7 +652,7 @@ export function PlayerController({
         </Suspense>
       </group>
       <Suspense fallback={null}>
-        <StudioCat body={catGroupRef} player={playerGroupRef} pet={pet} />
+        <StudioCat body={catGroupRef} player={playerGroupRef} pet={pet} outfit={catOutfit} />
       </Suspense>
     </>
   );

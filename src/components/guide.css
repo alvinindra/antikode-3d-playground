@@ -75,6 +75,10 @@
 .camera-list .icon { width: 16px; color: var(--apricot); }
 .shots button { justify-content: flex-start; }
 .shots .mono { font-size: 10px; opacity: .76; }
+.outfit-options .icon { margin-left: auto; width: 16px; color: var(--apricot); }
+.fabric { width: 27px; height: 27px; border-radius: 4px; flex: none; }
+.fabric.brazil { background: #f6c52b; border-block: 4px solid #68a147; }
+.fabric.jounin { background: #81824e url('/models/jounin-print.svg') center / 200% auto no-repeat; border-block: 3px solid #302c27; }
 .time-options { display: flex; gap: 6px; }
 .time-options button { flex: 1; }
 .light-list button { width: 100%; border-bottom: 1px solid var(--rule); padding: 0 2px; }
